@@ -1,5 +1,8 @@
 #include "miniutils.h"
 
+#ifndef UART_PUTC_OFFSET
+#define UART_PUTC_OFFSET  0
+#endif
 
 #define __ITOA_NEGATE_B         0
 #define __ITOA_NO_ZERO_END_B    1
@@ -138,7 +141,7 @@ void uprint(int uart, const char* f, ...) {
   if (uart < 0 || uart >= CONFIG_UART_CNT) return;
   va_list arg_p;
   va_start(arg_p, f);
-  v_printf(uart, f, arg_p);
+  v_printf(uart+UART_PUTC_OFFSET, f, arg_p);
   va_end(arg_p);
 }
 

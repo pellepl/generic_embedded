@@ -55,7 +55,7 @@ void i2c_dev_exec(i2c_dev *dev) {
   bool gen_stop = dev->cur_seq.gen_stop | (dev->seq_len == 0);
   int res = dev->cur_seq.dir ?
       I2C_tx(dev->bus, dev->addr, dev->cur_seq.buf, dev->cur_seq.len, gen_stop) :
-      I2C_rx(dev->bus, dev->addr, dev->cur_seq.buf, dev->cur_seq.len, gen_stop);
+      I2C_rx(dev->bus, dev->addr, (u8_t *)dev->cur_seq.buf, dev->cur_seq.len, gen_stop);
   if (res != I2C_OK) {
     DBG(D_I2C, D_DEBUG, "i2c_dev: sequence call failed %i\n", res);
     i2c_dev_finish(dev, res);
@@ -127,7 +127,7 @@ int I2C_DEV_sequence(i2c_dev *dev, const i2c_dev_sequence *seq, u8_t seq_len) {
   }
 
   dev->seq_len = seq_len;
-  dev->seq_list = seq;
+  dev->seq_list = (i2c_dev_sequence *)seq;
   dev->cur_seq.buf = 0;
   dev->cur_seq.len = 0;
   dev->cur_seq.gen_stop = 0;
