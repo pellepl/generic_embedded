@@ -1,0 +1,443 @@
+/*
+ * usr_wifi232_driver.c
+ *
+ *  Created on: Aug 28, 2013
+ *      Author: petera
+ */
+
+#include "usr_wifi232_driver.h"
+#include "miniutils.h"
+#include "uart_driver.h"
+#include "taskq.h"
+
+// TODO TIMER
+
+#define WIFI_BUF_SIZE 512
+
+typedef enum {
+  WIFI_DATA = 0,
+  WIFI_ENTER_PLUS,
+  WIFI_ENTER_A,
+  WIFI_ECHO_COMMAND,
+  WIFI_COMMAND_RES,
+  WIFI_EXIT,
+  WIFI_EXIT1,
+  WIFI_EXIT2,
+} wifi_cfg_state;
+
+static struct {
+  volatile bool config;
+  volatile bool busy;
+  wifi_cfg_state state;
+  wifi_cfg_cmd cmd;
+  void *data;
+  wifi_cb cb;
+  u32_t out_rix;
+  u32_t out_wix;
+  char out[WIFI_BUF_SIZE];
+  u8_t cfg_cmd_linenbr;
+} wsta;
+
+
+static void wifi_enter_config(void) {
+  DBG(D_WIFI, D_DEBUG, "WIFI: enter config mode\n");
+  wsta.config = TRUE;
+  wsta.state = WIFI_ENTER_PLUS;
+  UART_put_char(_UART(WIFI_UART), '+');
+  UART_put_char(_UART(WIFI_UART), '+');
+  UART_put_char(_UART(WIFI_UART), '+');
+}
+
+static void wifi_exit_config(void) {
+  wsta.state = WIFI_EXIT;
+  DBG(D_WIFI, D_DEBUG, "WIFI: exit config mode\n");
+  UART_put_buf(_UART(WIFI_UART), (u8_t*)"at+entm\n", 8);
+}
+
+// emit command to usr wifi
+static void wifi_do_command(void) {
+  DBG(D_WIFI, D_DEBUG, "WIFI: command %i\n", wsta.cmd);
+
+  switch (wsta.cmd) {
+  case WIFI_SCAN:
+    DBG(D_WIFI, D_DEBUG, "WIFI: < at+wscan\n");
+    UART_put_buf(_UART(WIFI_UART), (u8_t*)"at+wscan\n", 9);
+    break;
+  case WIFI_GET_WAN:
+    DBG(D_WIFI, D_DEBUG, "WIFI: < at+wann\n");
+    UART_put_buf(_UART(WIFI_UART), (u8_t*)"at+wann\n", 8);
+    break;
+  case WIFI_GET_SSID:
+    DBG(D_WIFI, D_DEBUG, "WIFI: < at+wsssid\n");
+    UART_put_buf(_UART(WIFI_UART), (u8_t*)"at+wsssid\n", 10);
+    break;
+  }
+}
+
+// read command result from usr wifi
+static void wifi_on_cmd_res(char *line, u32_t strlen, u8_t linenbr) {
+  DBG(D_WIFI, D_DEBUG, "WIFI: cmd res line%i \"%s\"\n", linenbr, line);
+
+  if (strlen >= 4 && strncmp("+ERR", line, 4) == 0) {
+    DBG(D_WIFI, D_WARN, "WIFI: config err %s\n", line);
+
+    wsta.cb(wsta.cmd, WIFI_ERR_CONFIG, 0, 0);
+    wifi_exit_config();
+    return;
+  }
+
+  if (strlen == 0 && wsta.cmd != WIFI_SCAN) {
+    wifi_exit_config();
+    return;
+  }
+
+  cursor c;
+  strarg arg;
+  bool parse_ok = FALSE;
+
+  switch (wsta.cmd) {
+
+  case WIFI_SCAN: {
+    if (linenbr >= 2 && strlen > 0) {
+      strarg_init(&c, line, strlen);
+      do {
+        wifi_ap *ap = (wifi_ap *)wsta.data;
+        if (strarg_next_delim(&c, &arg, ",")) {
+          ap->channel = arg.val;
+        } else break;
+        if (strarg_next_delim_str(&c, &arg, ",")) {
+          strcpy(ap->ssid, arg.str);
+        } else break;
+        if (strarg_next_delim_str(&c, &arg, ",")) {
+          strncpy(ap->mac, arg.str, arg.len);
+        } else break;
+        if (strarg_next_delim_str(&c, &arg, ",")) {
+          strcpy(ap->encryption, arg.str);
+        } else break;
+        if (strarg_next_delim(&c, &arg, ",")) {
+          ap->signal = arg.val;
+        } else break;
+        parse_ok = TRUE;
+        wsta.cb(wsta.cmd, WIFI_OK, 0, ap);
+      } while (0);
+      if (!parse_ok) {
+        wsta.cb(wsta.cmd, WIFI_ERR_PARSE, 0, 0);
+      }
+    } else if (linenbr > 2) {
+      parse_ok = TRUE;
+      wsta.cb(wsta.cmd, WIFI_END_OF_SCAN, 0, 0);
+      wifi_exit_config();
+    } else {
+      // just pass this line
+      parse_ok = TRUE;
+    }
+    break;
+  }
+
+  case WIFI_GET_WAN: {
+    //+ok=STATIC,192.168.0.124,255.255.255.0,192.168.0.1
+    if (strlen > 4) {
+      strarg_init(&c, line+4, strlen-4);
+      wifi_wan_setting *wan = (wifi_wan_setting *)wsta.data;
+      do {
+        if (strarg_next_delim_str(&c, &arg, ",")) {
+          if (strcmp("STATIC", arg.str) == 0) {
+            wan->method = WIFI_WAN_STATIC;
+          } else if (strcmp("DHCP", arg.str) == 0) {
+            wan->method = WIFI_WAN_DHCP;
+          } else break;
+        } else break;
+        if (strarg_next_delim(&c, &arg, ".")) {
+          wan->ip[0] = arg.val;
+        } else break;
+        if (strarg_next_delim(&c, &arg, ".")) {
+          wan->ip[1] = arg.val;
+        } else break;
+        if (strarg_next_delim(&c, &arg, ".")) {
+          wan->ip[2] = arg.val;
+        } else break;
+        if (strarg_next_delim(&c, &arg, ",")) {
+          wan->ip[3] = arg.val;
+        } else break;
+
+        if (strarg_next_delim(&c, &arg, ".")) {
+          wan->netmask[0] = arg.val;
+        } else break;
+        if (strarg_next_delim(&c, &arg, ".")) {
+          wan->netmask[1] = arg.val;
+        } else break;
+        if (strarg_next_delim(&c, &arg, ".")) {
+          wan->netmask[2] = arg.val;
+        } else break;
+        if (strarg_next_delim(&c, &arg, ",")) {
+          wan->netmask[3] = arg.val;
+        } else break;
+
+        if (strarg_next_delim(&c, &arg, ".")) {
+          wan->gateway[0] = arg.val;
+        } else break;
+        if (strarg_next_delim(&c, &arg, ".")) {
+          wan->gateway[1] = arg.val;
+        } else break;
+        if (strarg_next_delim(&c, &arg, ".")) {
+          wan->gateway[2] = arg.val;
+        } else break;
+        if (strarg_next(&c, &arg)) {
+          wan->gateway[3] = arg.val;
+        } else break;
+
+        parse_ok = TRUE;
+        wsta.cb(wsta.cmd, WIFI_OK, 0, wan);
+      } while (0);
+    }
+    if (!parse_ok) {
+      wsta.cb(wsta.cmd, WIFI_ERR_PARSE, 0, 0);
+    }
+
+    break;
+  }
+
+  case WIFI_GET_SSID: {
+    //+ok=springfield
+    if (strlen > 4) {
+      strarg_init(&c, line+4, strlen-4);
+      char *ssid = (char *)wsta.data;
+      do {
+        if (strarg_next_str(&c, &arg)) {
+          strcpy(ssid, arg.str);
+        } else break;
+
+        parse_ok = TRUE;
+        wsta.cb(wsta.cmd, WIFI_OK, 0, ssid);
+      } while (0);
+    }
+    if (!parse_ok) {
+      wsta.cb(wsta.cmd, WIFI_ERR_PARSE, 0, 0);
+    }
+
+    break;
+  }
+  }
+}
+
+static void wifi_cfg_on_line(char *line, u32_t strlen) {
+  if (wsta.state != WIFI_COMMAND_RES) {
+    DBG(D_WIFI, D_DEBUG, "WIFI: > len:%4i \"%s\"\n", strlen, line);
+  }
+  switch (wsta.state) {
+  case WIFI_ENTER_PLUS:
+    if (strcmp("a", line)) {
+      wsta.state = WIFI_ENTER_A;
+      UART_put_char(_UART(WIFI_UART), 'a');
+    }
+    break;
+  case WIFI_ENTER_A:
+    if (strcmp("+ok", line)) {
+      wsta.state = WIFI_ECHO_COMMAND;
+      wifi_do_command();
+    }
+    break;
+  case WIFI_ECHO_COMMAND:
+    wsta.cfg_cmd_linenbr = 0;
+    wsta.state = WIFI_COMMAND_RES;
+    break;
+  case WIFI_COMMAND_RES:
+    wifi_on_cmd_res(line, strlen, wsta.cfg_cmd_linenbr);
+    wsta.cfg_cmd_linenbr++;
+    break;
+  case WIFI_EXIT:
+    wsta.state = WIFI_EXIT1;
+    break;
+  case WIFI_EXIT1:
+    wsta.state = WIFI_EXIT2;
+    break;
+  case WIFI_EXIT2:
+    wsta.busy = FALSE;
+    wsta.state = WIFI_DATA;
+    DBG(D_WIFI, D_DEBUG, "WIFI: config exited\n");
+
+    break;
+  default:
+    break;
+  }
+}
+
+void wifi_task_on_line(u32_t rix, void* pwix) {
+  u32_t wix = (u32_t)pwix;
+  char buf[WIFI_BUF_SIZE/4];
+  u32_t len;
+
+  if (rix == wix) {
+    len = 0;
+    buf[0] = 0;
+  } else if (rix < wix) {
+    len = wix-rix;
+    memcpy(buf, &wsta.out[rix], len);
+    buf[len] = 0;
+  } else {
+    memcpy(buf, &wsta.out[rix], WIFI_BUF_SIZE-rix);
+    memcpy(&buf[WIFI_BUF_SIZE-rix], &wsta.out[0], wix);
+    len = wix + (WIFI_BUF_SIZE-rix);
+    buf[len] = 0;
+  }
+  wifi_cfg_on_line(buf, len);
+}
+
+static void wifi_uart_cb(void *arg, u8_t c) {
+  if (wsta.config) {
+    if (c == '\r') return;
+    // after three +++, an 'a' is followed w/o carrige return
+    if (c == '\n' || (wsta.state == WIFI_ENTER_PLUS && c == 'a')) {
+      wsta.out[wsta.out_wix] = 0;
+      task *t = TASK_create(wifi_task_on_line, 0);
+      TASK_run(t, wsta.out_rix, (void*)(wsta.out_wix));
+      wsta.out_wix++;
+      if (wsta.out_wix >= WIFI_BUF_SIZE) {
+        wsta.out_wix = 0;
+      }
+      wsta.out_rix = wsta.out_wix;
+    } else {
+      wsta.out[wsta.out_wix] = c;
+      wsta.out_wix++;
+      if (wsta.out_wix >= WIFI_BUF_SIZE) {
+        wsta.out_wix = 0;
+      }
+    }
+  } else {
+    // TODO data
+  }
+}
+
+//////////////////////////////// api
+
+int WIFI_scan(wifi_ap *ap) {
+  if (!WIFI_is_ready()) {
+    return WIFI_ERR_NOT_READY;
+  }
+  if (wsta.busy) {
+    return WIFI_ERR_BUSY;
+  }
+  wsta.busy = TRUE;
+  wsta.data = ap;
+  wsta.cmd = WIFI_SCAN;
+
+  wifi_enter_config();
+
+  return WIFI_OK;
+}
+
+int WIFI_get_wan(wifi_wan_setting *wan) {
+  if (!WIFI_is_ready()) {
+    return WIFI_ERR_NOT_READY;
+  }
+  if (wsta.busy) {
+    return WIFI_ERR_BUSY;
+  }
+  wsta.busy = TRUE;
+  wsta.data = wan;
+  wsta.cmd = WIFI_GET_WAN;
+
+  wifi_enter_config();
+
+  return WIFI_OK;
+}
+
+int WIFI_get_ssid(char *ssid) {
+  if (!WIFI_is_ready()) {
+    return WIFI_ERR_NOT_READY;
+  }
+  if (wsta.busy) {
+    return WIFI_ERR_BUSY;
+  }
+  wsta.busy = TRUE;
+  wsta.data = ssid;
+  wsta.cmd = WIFI_GET_SSID;
+
+  wifi_enter_config();
+
+  return WIFI_OK;
+}
+
+
+//////////////////////////////// HW
+
+
+bool WIFI_is_ready(void) {
+  bool ready = GPIO_read(WIFI_GPIO_PORT, WIFI_GPIO_READY_PIN) == 0;
+  return ready;
+}
+
+bool WIFI_is_link(void) {
+  bool link = GPIO_read(WIFI_GPIO_PORT, WIFI_GPIO_LINK_PIN) == 0;
+  return link;
+}
+
+void WIFI_reset(void) {
+  GPIO_set(WIFI_GPIO_PORT, 0, WIFI_GPIO_RESET_PIN);
+  SYS_hardsleep_ms(400);
+  GPIO_set(WIFI_GPIO_PORT, WIFI_GPIO_RESET_PIN, 0);
+}
+
+void WIFI_factory_reset(void) {
+  GPIO_set(WIFI_GPIO_PORT, 0, WIFI_GPIO_RELOAD_PIN);
+  SYS_hardsleep_ms(1200);
+  GPIO_set(WIFI_GPIO_PORT, WIFI_GPIO_RELOAD_PIN, 0);
+  wsta.busy = FALSE;
+}
+
+void WIFI_state(void) {
+  bool ready = WIFI_is_ready();
+  bool link = WIFI_is_link();
+  print("WIFI ready: %s\n", ready ? "YES":"NO");
+  print("WIFI link : %s\n", link ? "YES":"NO");
+}
+
+
+//////////////////////////////// init
+
+void WIFI_init(wifi_cb cb) {
+  USART_TypeDef *uart_hw = _UART(WIFI_UART)->hw;
+
+  USART_Cmd(uart_hw, DISABLE);
+
+  USART_InitTypeDef USART_InitStructure;
+  USART_InitStructure.USART_BaudRate = WIFI_UART_BAUD;
+  USART_InitStructure.USART_WordLength = USART_WordLength_8b;
+  USART_InitStructure.USART_StopBits = USART_StopBits_1;
+  USART_InitStructure.USART_Parity = USART_Parity_No ;
+  USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+  USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
+
+  /* Configure the USART */
+  USART_Init(uart_hw, &USART_InitStructure);
+
+  UART_assure_tx(_UART(WIFI_UART), TRUE);
+  UART_set_callback(_UART(WIFI_UART), wifi_uart_cb, 0);
+
+  USART_Cmd(uart_hw, ENABLE);
+
+  memset(&wsta, 0, sizeof(wsta));
+  wsta.cb = cb;
+}
+/*
+AT+WMODE
++ok=STA
+
+AT+WSKEY
++ok=WPA2PSK,AES,<*******>
+
+AT+WSSSID
++ok=springfield
+
+AT+WANN
++ok=STATIC,192.168.0.124,255.255.255.0,192.168.0.1
++ok=DHCP,0.0.0.0,255.255.255.0,192.168.0.1
+
+AT+LANGW
++ok=192.168.0.1
+
+AT+NETP
++ok=UDP,Client,51966,192.168.0.204
+
+ *
+ */
