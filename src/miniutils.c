@@ -27,7 +27,7 @@
 
 static void u_itoa(unsigned int v, char* dst, int base, int num, int flags);
 
-void v_printf(long p, const char* f, va_list arg_p) {
+static void v_printf(long p, const char* f, va_list arg_p) {
   register const char* tmp_f = f;
   register const char* start_f = f;
   char c;
@@ -137,18 +137,17 @@ void v_printf(long p, const char* f, va_list arg_p) {
   }
 }
 
-void uprint(int uart, const char* f, ...) {
-  if (uart < 0 || uart >= CONFIG_UART_CNT) return;
+void ioprint(int io, const char* f, ...) {
   va_list arg_p;
   va_start(arg_p, f);
-  v_printf(uart+UART_PUTC_OFFSET, f, arg_p);
+  v_printf(io, f, arg_p);
   va_end(arg_p);
 }
 
 void print(const char* f, ...) {
   va_list arg_p;
   va_start(arg_p, f);
-  v_printf(STDOUT, f, arg_p);
+  v_printf(IOSTD, f, arg_p);
   va_end(arg_p);
 }
 
@@ -171,12 +170,11 @@ void printbuf(u8_t *buf, u16_t len) {
 }
 
 void vprint(const char* f, va_list arg_p) {
-  v_printf(STDOUT, f, arg_p);
+  v_printf(IOSTD, f, arg_p);
 }
 
-void vuprint(int uart, const char* f, va_list arg_p) {
-  if (uart < 0 || uart > CONFIG_UART_CNT) return;
-  v_printf(uart, f, arg_p);
+void vioprint(int io, const char* f, va_list arg_p) {
+  v_printf(io, f, arg_p);
 }
 
 void sprint(char *s, const char* f, ...) {
@@ -807,11 +805,3 @@ void strarg_init(cursor *c, char* s, int len) {
   }
 }
 
-#define ACC   (16)
-#define PI    (1 << 9)
-#define _B    ((4 << ACC) / PI)
-#define _C    (-(4 << ACC) / (PI * PI))
-inline short calc_sin(int a) {
-  int sin = a * _B + _C * a * (a < 0 ? -a : a);
-  return sin >> 1;
-}

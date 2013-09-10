@@ -11,15 +11,15 @@ typedef unsigned char  uint8_t;
 
 typedef enum {FALSE = 0, TRUE = !FALSE} bool;
 
-#define U8_MAX     ((u8)255)
-#define S8_MAX     ((s8)127)
-#define S8_MIN     ((s8)-128)
-#define U16_MAX    ((u16)65535u)
-#define S16_MAX    ((s16)32767)
-#define S16_MIN    ((s16)-32768)
-#define U32_MAX    ((u32)4294967295uL)
-#define S32_MAX    ((s32)2147483647)
-#define S32_MIN    ((s32)2147483648uL)
+#define U8_MAX     ((u8_t)255)
+#define S8_MAX     ((s8_t)127)
+#define S8_MIN     ((s8_t)-128)
+#define U16_MAX    ((u16_t)65535u)
+#define S16_MAX    ((s16_t)32767)
+#define S16_MIN    ((s16_t)-32768)
+#define U32_MAX    ((u32_t)4294967295uL)
+#define S32_MAX    ((s32_t)2147483647)
+#define S32_MIN    ((s32_t)2147483648uL)
 
 #define FALSE       (0)
 #define TRUE        (!FALSE)
@@ -34,11 +34,5 @@ typedef uint8_t u8_t;
 typedef sint8_t s8_t;
 
 typedef unsigned long time;
-
-#define MIN(x,y)  ((x)<(y)?(x):(y))
-#define MAX(x,y)  ((x)>(y)?(x):(y))
-#define ABS(x)    ((x)<0?(-(x)):(x))
-
-#define STR(tok) #tok
 
 #endif /* __TYPE_H */

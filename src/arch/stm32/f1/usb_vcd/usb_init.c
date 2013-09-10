@@ -66,7 +66,6 @@ USER_STANDARD_REQUESTS  *pUser_Standard_Requests;
 *******************************************************************************/
 void USB_Init(void)
 {
-  usb_hw_init();
   pInformation = &Device_Info;
   pInformation->ControlState = 2;
   pProperty = &Device_Property;

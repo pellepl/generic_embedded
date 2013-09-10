@@ -46,6 +46,12 @@ endif
 
 endif
 
+### general system files
+
+CFILES	+= arch.c
+CFILES	+= system.c
+CFILES	+= io.c
+
 ### CONFIG_MEMOPS - memset, memcpy
 
 ifeq (1, $(strip $(CONFIG_MEMOPS)))
@@ -209,7 +215,7 @@ ifeq (1, $(strip $(PROC_STM32F4)))
 CPATH	+= ${genprocdir}/usb_vcd 
 INC		+= -I./${genprocdir}/usb_vcd
 CFILES	+= usb_vcp_impl.c
-CFILES	+= usb_bsp.c usbd_desc.c usbd_cdc_vcp.c usbd_usr.c
+CFILES	+= usb_bsp.c usbd_desc.c usbd_usr.c
 
 stmusbdir = ../stm32f4_lib/STM32_USB-Host-Device_Lib_V2.1.0/Libraries
 CPATH	+= ${stmusbdir}/STM32_USB_Device_Library/Class/cdc/src 

@@ -12,7 +12,7 @@ static void _bootloader_setup_context() {
   // all interrupts off
   __disable_irq();
   // flush uart stdout
-  UART_tx_flush(_UART(STDOUT));
+  UART_tx_flush(_UART(UARTSTDOUT));
 
   // entering deep waters..
 
@@ -38,7 +38,7 @@ static void _bootloader_setup_periph() {
   SHMEM_get()->user[BOOTLOADER_SHMEM_SPI_FLASH_UIX] = (u32_t)(_SPI_BUS(FLASH_SPI_BUS)->hw);
 #endif
   // save stdout uart hw pointer
-  SHMEM_get()->user[BOOTLOADER_SHMEM_UART_UIX] = (u32_t)(_UART(STDOUT)->hw);
+  SHMEM_get()->user[BOOTLOADER_SHMEM_UART_UIX] = (u32_t)(_UART(UARTSTDOUT)->hw);
 
   SHMEM_CALC_CHK(SHMEM_get(), SHMEM_get()->chk);
 }

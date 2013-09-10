@@ -8,16 +8,20 @@
 #include "taskq.h"
 #include "miniutils.h"
 #include "system.h"
-#include "os.h"
 #include "linker_symaccess.h"
+#ifdef CONFIG_OS
+#include "os.h"
+#endif
 
 static struct {
-  task* head;
-  task* last;
+  volatile task* head;
+  volatile task* last;
   task* current;
   task_timer *first_timer;
   volatile bool tim_lock;
+#ifdef CONFIG_OS
   os_cond cond;
+#endif
 } task_sys;
 
 static struct {
@@ -29,9 +33,9 @@ static u8_t _g_timer_ix = 0;
 
 static void TASK_insert_timer(task_timer *timer, time actual_time);
 
-static void print_task(task *t, const char *prefix) {
+static void print_task(u8_t io, task *t, const char *prefix) {
   if (t) {
-  print("%s ix:%02x  f:%08x  FLAGS:%s%s%s%s  arg:%08x  argp:%08x\n"
+    ioprint(io, "%s ix:%02x  f:%08x  FLAGS:%s%s%s%s  arg:%08x  argp:%08x\n"
         "%s        next:%08x  run_reqs:%i\n"
       ,
       prefix,
@@ -47,13 +51,13 @@ static void print_task(task *t, const char *prefix) {
       t->_next,
       t->run_requests);
   } else {
-    print("%s NONE\n", prefix);
+    ioprint(io, "%s NONE\n", prefix);
   }
 }
 
-static void print_timer(task_timer *t, const char *prefix, time now) {
+static void print_timer(u8_t io, task_timer *t, const char *prefix, time now) {
   if (t) {
-    print("%s %s  start:%08x (%+08x)  recurrent:%08x  next:%08x  [%s]\n",
+    ioprint(io, "%s %s  start:%08x (%+08x)  recurrent:%08x  next:%08x  [%s]\n",
         prefix,
         t->alive ? "ALIVE": "DEAD ",
         (u32_t)t->start_time,
@@ -61,49 +65,50 @@ static void print_timer(task_timer *t, const char *prefix, time now) {
         (u32_t)(t->recurrent_time),
         (u32_t)(t->_next),
         t->name);
-    print_task(t->task, prefix);
+    print_task(io, t->task, prefix);
   } else {
-    print("%s NONE\n", prefix);
+    ioprint(io, "%s NONE\n", prefix);
   }
 }
 
 #define TASK_DUMP_OUTPUT "  task list __ "
 #define TASK_TIM_DUMP_OUTPUT "  tmr list __ "
-void TASK_dump_pool() {
+void TASK_dump_pool(u8_t io) {
   int i, j;
   for (i = 0; i <= (_TASK_POOL-1)/32; i++) {
        if (task_pool.mask[i]) {
          for (j = 0; j < 32; j++) {
            int ix = i*32+j;
-           print("TASK %i @ %08x\n", ix, &task_pool.task[ix]);
-           print_task(&task_pool.task[ix], "");
+           ioprint(io, "TASK %i @ %08x\n", ix, &task_pool.task[ix]);
+           print_task(io, &task_pool.task[ix], "");
          }
        }
      }
 }
-void TASK_dump() {
-  print("TASK SYSTEM\n-----------\n");
-  print_task(task_sys.current, "  current");
+
+void TASK_dump(u8_t io) {
+  ioprint(io, "TASK SYSTEM\n-----------\n");
+  print_task(io, task_sys.current, "  current");
 
   char lst[sizeof(TASK_DUMP_OUTPUT)];
   memcpy(lst, TASK_DUMP_OUTPUT, sizeof(TASK_DUMP_OUTPUT));
   char* p = (char*)strchr(lst, '_');
-  task* ct = task_sys.head;
+  task* ct = (task *)task_sys.head;
   int ix = 1;
   while (ct) {
     sprint(p, "%02i", ix++);
-    print_task(ct, lst);
+    print_task(io, ct, lst);
     ct = ct->_next;
   }
-  print_task(task_sys.last, "  last   ");
+  print_task(io, (task *)task_sys.last, "  last   ");
 
-  print("  pool bitmap ");
+  ioprint(io, "  pool bitmap ");
   for (ix = 0; ix < sizeof(task_pool.mask)/sizeof(task_pool.mask[0]); ix++) {
-    print("%032b ", task_pool.mask[ix]);
+    ioprint(io, "%032b ", task_pool.mask[ix]);
   }
-  print("\n");
+  ioprint(io, "\n");
 
-  print("  timers\n");
+  ioprint(io, "  timers\n");
   char lst2[sizeof(TASK_TIM_DUMP_OUTPUT)];
   memcpy(lst2, TASK_TIM_DUMP_OUTPUT, sizeof(TASK_TIM_DUMP_OUTPUT));
   p = (char*)strchr(lst2, '_');
@@ -112,7 +117,7 @@ void TASK_dump() {
   time now = SYS_get_time_ms();
   while (tt) {
     sprint(p, "%02i", ix++);
-    print_timer(tt, lst2, now);
+    print_timer(io, tt, lst2, now);
     tt = tt->_next;
   }
 }
@@ -126,7 +131,9 @@ void TASK_init() {
     task_pool.task[i]._ix = i;
     task_pool.mask[i/32] |= (1<<(i&0x1f));
   }
+#ifdef CONFIG_OS
   OS_cond_init(&task_sys.cond);
+#endif
 }
 
 static task* TASK_snatch_free(int dir) {
@@ -161,9 +168,9 @@ task_found:
 }
 
 task* TASK_create(task_f f, u8_t flags) {
-  __os_enter_critical_kernel();
+  enter_critical();
   task* task = TASK_snatch_free(flags & TASK_STATIC);
-  __os_exit_critical_kernel();
+  exit_critical();
   if (task) {
     task->f = f;
     task->run_requests = 0;
@@ -187,7 +194,7 @@ void TASK_run(task* task, u32_t arg, void* arg_p) {
   task->arg = arg;
   task->arg_p = arg_p;
 
-  __os_enter_critical_kernel();
+  enter_critical();
   if (task_sys.last == 0) {
     task_sys.head = task;
   } else {
@@ -198,13 +205,15 @@ void TASK_run(task* task, u32_t arg, void* arg_p) {
   task->_next = 0;
   task->run_requests++;
   TRACE_TASK_RUN(task->_ix);
+#ifdef CONFIG_OS
   OS_cond_signal(&task_sys.cond);
-  __os_exit_critical_kernel();
+#endif
+  exit_critical();
 }
 
 void TASK_start_timer(task *task, task_timer* timer, u32_t arg, void *arg_p, time start_time, time recurrent_time,
     const char *name) {
-  __os_enter_critical_kernel();
+  enter_critical();
   task_sys.tim_lock = TRUE;
   ASSERT(timer->alive == FALSE);
   timer->_ix = _g_timer_ix++;
@@ -217,7 +226,7 @@ void TASK_start_timer(task *task, task_timer* timer, u32_t arg, void *arg_p, tim
   timer->name = name;
   TASK_insert_timer(timer, SYS_get_time_ms() + start_time);
   task_sys.tim_lock = FALSE;
-  __os_exit_critical_kernel();
+  exit_critical();
 }
 
 void TASK_set_timer_recurrence(task_timer* timer, time recurrent_time) {
@@ -225,7 +234,7 @@ void TASK_set_timer_recurrence(task_timer* timer, time recurrent_time) {
 }
 
 void TASK_stop_timer(task_timer* timer) {
-  __os_enter_critical_kernel();
+  enter_critical();
   task_sys.tim_lock = TRUE;
   timer->alive = FALSE;
 
@@ -244,7 +253,7 @@ void TASK_stop_timer(task_timer* timer) {
     cur_timer = cur_timer->_next;
   }
   task_sys.tim_lock = FALSE;
-  __os_exit_critical_kernel();
+  exit_critical();
 }
 
 void TASK_kill() {
@@ -261,24 +270,28 @@ u8_t TASK_is_running(task* t) {
 
 void TASK_wait() {
   while (task_sys.head == 0) {
+#ifdef CONFIG_OS
     OS_cond_wait(&task_sys.cond, NULL);
+#else
+    arch_sleep();
+#endif
   }
 }
 
 void TASK_free(task *t) {
-  __os_enter_critical_kernel();
+  enter_critical();
   task_pool.mask[t->_ix/32] |= (1<<(t->_ix & 0x1f));
   t->flags &= ~(TASK_RUN | TASK_STATIC);
-  __os_exit_critical_kernel();
+  exit_critical();
 }
 
 u32_t TASK_tick() {
-  __os_enter_critical_kernel();
-  task* t = task_sys.head;
-  task_sys.current = t;
+  enter_critical();
+  volatile task* t = task_sys.head;
+  task_sys.current = (task *)t;
   if (t == 0) {
     // naught to do
-    __os_exit_critical_kernel();
+    exit_critical();
     return 0;
   }
   ASSERT(t >= &task_pool.task[0]);
@@ -292,7 +305,7 @@ u32_t TASK_tick() {
   if ((t->flags & TASK_LOOP)) {
     // loop, put this at end or simply keep if the only one
     if (t->_next != 0) {
-      task_sys.last->_next = t;
+      task_sys.last->_next = (task *)t;
       task_sys.head = t->_next;
       if (task_sys.head != 0) {
         ASSERT(task_sys.head >= &task_pool.task[0]);
@@ -315,7 +328,7 @@ u32_t TASK_tick() {
     }
     t->flags &= ~TASK_RUN;
   }
-  __os_exit_critical_kernel();
+  exit_critical();
 
   if (do_run) {
     u8_t run_requests;
@@ -328,12 +341,12 @@ u32_t TASK_tick() {
     do {
       t->f(t->arg, t->arg_p);
 
-      __os_enter_critical_kernel();
+      enter_critical();
       if (t->run_requests > 0) {
         t->run_requests--;
       }
       run_requests = t->run_requests;
-      __os_exit_critical_kernel();
+      exit_critical();
     } while (run_requests > 0);
     TRACE_TASK_EXIT(t->_ix);
     t->flags &= ~TASK_EXE;
@@ -389,7 +402,7 @@ void TASK_timer() {
 
   task_timer *old_timer = NULL;
   while (cur_timer && cur_timer->start_time <= SYS_get_time_ms()) {
-    __os_enter_critical_kernel();
+    enter_critical();
     if (!TASK_is_running(cur_timer->task) && cur_timer->alive) {
       // expired, schedule for run
       TRACE_TASK_TIMER(cur_timer->_ix);
@@ -405,6 +418,6 @@ void TASK_timer() {
     } else {
       old_timer->alive = FALSE;
     }
-    __os_exit_critical_kernel();
+    exit_critical();
   }
 }

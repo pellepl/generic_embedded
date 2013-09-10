@@ -65,7 +65,7 @@ extern uart __uart_vec[CONFIG_UART_CNT];
 
 void UART_irq(uart *uart);
 void UART_init();
-void UART_assure_tx(uart *u, bool on);
+bool UART_assure_tx(uart *u, bool on);
 bool UART_sync_tx(uart *u, bool on);
 void UART_set_callback(uart *uart, uart_rx_callback rx_f, void* arg);
 void UART_get_callback(uart *uart, uart_rx_callback *rx_f, void **arg);

@@ -1,72 +1,26 @@
-/**
-  ******************************************************************************
-  * @file    hw_config.c
-  * @author  MCD Application Team
-  * @version V4.0.0
-  * @date    21-January-2013
-  * @brief   Hardware Configuration & Setup
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; COPYRIGHT 2013 STMicroelectronics</center></h2>
-  *
-  * Licensed under MCD-ST Liberty SW License Agreement V2, (the "License");
-  * You may not use this file except in compliance with the License.
-  * You may obtain a copy of the License at:
-  *
-  *        http://www.st.com/software_license_agreement_liberty_v2
-  *
-  * Unless required by applicable law or agreed to in writing, software 
-  * distributed under the License is distributed on an "AS IS" BASIS, 
-  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  * See the License for the specific language governing permissions and
-  * limitations under the License.
-  *
-  ******************************************************************************
-  */
-
-
-/* Includes ------------------------------------------------------------------*/
-
 #include "system_config.h"
-#include "stm32f10x_it.h"
 #include "usb_lib.h"
 #include "usb_prop.h"
 #include "usb_desc.h"
 #include "usb_hw_config.h"
 #include "usb_pwr.h"
 #include "ringbuf.h"
+#include "usb_serial.h"
 
-
-/* Private typedef -----------------------------------------------------------*/
-/* Private define ------------------------------------------------------------*/
-/* Private macro -------------------------------------------------------------*/
-/* Private variables ---------------------------------------------------------*/
 ErrorStatus HSEStartUpStatus;
-uint8_t  tx_buf[USART_RX_DATA_SIZE];
+uint8_t tx_buf[USB_VCD_TX_BUF_SIZE];
+uint8_t rx_buf[USB_VCD_RX_BUF_SIZE];
 ringbuf tx_rb;
+ringbuf rx_rb;
 
-uint8_t  USB_Tx_State = 0;
-static void IntToUnicode (uint32_t value , uint8_t *pbuf , uint8_t len);
-/* Extern variables ----------------------------------------------------------*/
+uint8_t USB_Tx_State = 0;
+static void IntToUnicode(uint32_t value, uint8_t *pbuf, uint8_t len);
 
 extern LINE_CODING linecoding;
 
-/* Private function prototypes -----------------------------------------------*/
-/* Private functions ---------------------------------------------------------*/
-
-/*******************************************************************************
-* Function Name  : Enter_LowPowerMode
-* Description    : Power-off system clocks and power while entering suspend mode
-* Input          : None.
-* Return         : None.
-*******************************************************************************/
-void Enter_LowPowerMode(void)
-{
+void Enter_LowPowerMode(void) {
   /* Set the device state to suspend */
   bDeviceState = SUSPENDED;
-
-
 
   // TODO PETER TEST
   GPIO_InitTypeDef GPIO_InitStructure;
@@ -77,24 +31,14 @@ void Enter_LowPowerMode(void)
   //NVIC_DisableIRQ(USB_LP_CAN1_RX0_IRQn);
 }
 
-/*******************************************************************************
-* Function Name  : Leave_LowPowerMode
-* Description    : Restores system clocks and power while exiting suspend mode
-* Input          : None.
-* Return         : None.
-*******************************************************************************/
-void Leave_LowPowerMode(void)
-{
+void Leave_LowPowerMode(void) {
   DEVICE_INFO *pInfo = &Device_Info;
 
   /* Set the device state to the correct state */
-  if (pInfo->Current_Configuration != 0)
-  {
+  if (pInfo->Current_Configuration != 0) {
     /* Device configured */
     bDeviceState = CONFIGURED;
-  }
-  else
-  {
+  } else {
     bDeviceState = ATTACHED;
   }
   /*Enable SystemCoreClock*/
@@ -109,154 +53,101 @@ void Leave_LowPowerMode(void)
   //SystemInit(); // TODO PETER - modification
 }
 
-/*******************************************************************************
-* Function Name  : USB_Cable_Config
-* Description    : Software Connection/Disconnection of USB Cable
-* Input          : None.
-* Return         : Status
-*******************************************************************************/
-void USB_Cable_Config (FunctionalState NewState)
-{
-#if defined(STM32L1XX_MD) || defined (STM32L1XX_HD)|| (STM32L1XX_MD_PLUS)
-  if (NewState != DISABLE)
-  {
-    STM32L15_USB_CONNECT;
-  }
-  else
-  {
-    STM32L15_USB_DISCONNECT;
-  }  
-  
-#else /* USE_STM3210B_EVAL or USE_STM3210E_EVAL */
-  if (NewState != DISABLE)
-  {
+void USB_Cable_Config(FunctionalState NewState) {
+  if (NewState != DISABLE) {
     GPIO_ResetBits(USB_DISCONNECT, USB_DISCONNECT_PIN);
-  }
-  else
-  {
+  } else {
     GPIO_SetBits(USB_DISCONNECT, USB_DISCONNECT_PIN);
   }
-#endif /* STM32L1XX_MD */
 }
 
-/*******************************************************************************
-* Function Name  : USB_To_USART_Send_Data.
-* Description    : send the received data from USB to the UART 0.
-* Input          : data_buffer: data address.
-                   Nb_bytes: number of bytes to send.
-* Return         : none.
-*******************************************************************************/
-void USB_Receive(uint8_t* data_buffer, uint8_t Nb_bytes)
-{
-  // TODO PETER
-  uint32_t i;
-  
-  for (i = 0; i < Nb_bytes; i++)
-  {
-    print("%c", *data_buffer++);
-    //USART_SendData(EVAL_COM1, *(data_buffer + i));
-    //while(USART_GetFlagStatus(EVAL_COM1, USART_FLAG_TXE) == RESET);
-  }  
+void USB_Receive(uint8_t* data_buffer, uint8_t Nb_bytes) {
+  ringbuf_put(&rx_rb, data_buffer, Nb_bytes);
 }
 
-/*******************************************************************************
-* Function Name  : Handle_USBAsynchXfer.
-* Description    : send data to USB.
-* Input          : None.
-* Return         : none.
-*******************************************************************************/
-void Handle_USBAsynchXfer (void)
-{
-  
-  if(USB_Tx_State != 1)
-  {
+void Handle_USBAsynchXfer(void) {
+
+  if (USB_Tx_State != 1) {
     u8_t *buf;
     int avail = ringbuf_available_linear(&tx_rb, &buf);
     if (avail == 0) {
-      USB_Tx_State = 0; 
+      USB_Tx_State = 0;
       return;
     }
-    
-    if (avail > VIRTUAL_COM_PORT_DATA_SIZE)
-    {
+
+    if (avail > VIRTUAL_COM_PORT_DATA_SIZE) {
       avail = VIRTUAL_COM_PORT_DATA_SIZE;
     }
 
-    USB_Tx_State = 1; 
+    USB_Tx_State = 1;
     UserToPMABufferCopy(buf, ENDP1_TXADDR, avail);
     ringbuf_get(&tx_rb, 0, avail);
     SetEPTxCount(ENDP1, avail);
-    SetEPTxValid(ENDP1); 
-  }  
-  
-}
-/*******************************************************************************
-* Function Name  : UART_To_USB_Send_Data.
-* Description    : send the received data from UART 0 to USB.
-* Input          : None.
-* Return         : none.
-*******************************************************************************/
-void USB_Transmit(u8_t d)
-{
-  ringbuf_putc(&tx_rb, d);
+    SetEPTxValid(ENDP1 );
+  }
+
 }
 
-/*******************************************************************************
-* Function Name  : Get_SerialNum.
-* Description    : Create the serial number string descriptor.
-* Input          : None.
-* Output         : None.
-* Return         : None.
-*******************************************************************************/
-void Get_SerialNum(void)
-{
+void Get_SerialNum(void) {
   uint32_t Device_Serial0, Device_Serial1, Device_Serial2;
 
-  Device_Serial0 = *(uint32_t*)ID1;
-  Device_Serial1 = *(uint32_t*)ID2;
-  Device_Serial2 = *(uint32_t*)ID3;  
+  Device_Serial0 = *(uint32_t*) ID1;
+  Device_Serial1 = *(uint32_t*) ID2;
+  Device_Serial2 = *(uint32_t*) ID3;
 
   Device_Serial0 += Device_Serial2;
 
-  if (Device_Serial0 != 0)
-  {
-    IntToUnicode (Device_Serial0, &Virtual_Com_Port_StringSerial[2] , 8);
-    IntToUnicode (Device_Serial1, &Virtual_Com_Port_StringSerial[18], 4);
+  if (Device_Serial0 != 0) {
+    IntToUnicode(Device_Serial0, &Virtual_Com_Port_StringSerial[2], 8);
+    IntToUnicode(Device_Serial1, &Virtual_Com_Port_StringSerial[18], 4);
   }
 }
 
-/*******************************************************************************
-* Function Name  : HexToChar.
-* Description    : Convert Hex 32Bits value into char.
-* Input          : None.
-* Output         : None.
-* Return         : None.
-*******************************************************************************/
-static void IntToUnicode (uint32_t value , uint8_t *pbuf , uint8_t len)
-{
+static void IntToUnicode(uint32_t value, uint8_t *pbuf, uint8_t len) {
   uint8_t idx = 0;
-  
-  for( idx = 0 ; idx < len ; idx ++)
-  {
-    if( ((value >> 28)) < 0xA )
-    {
-      pbuf[ 2* idx] = (value >> 28) + '0';
+
+  for (idx = 0; idx < len; idx++) {
+    if (((value >> 28)) < 0xA) {
+      pbuf[2 * idx] = (value >> 28) + '0';
+    } else {
+      pbuf[2 * idx] = (value >> 28) + 'A' - 10;
     }
-    else
-    {
-      pbuf[2* idx] = (value >> 28) + 'A' - 10; 
-    }
-    
+
     value = value << 4;
-    
-    pbuf[ 2* idx + 1] = 0;
+
+    pbuf[2 * idx + 1] = 0;
   }
 }
 
-void usb_hw_init(void) {
+void usb_serial_init(void) {
   ringbuf_init(&tx_rb, tx_buf, sizeof(tx_buf));
+  ringbuf_init(&rx_rb, rx_buf, sizeof(rx_buf));
+  USB_Init();
 }
 
+u16_t usb_serial_rx_avail(void) {
+  return ringbuf_available(&rx_rb);
+}
 
+s32_t usb_serial_rx_char(u8_t *c) {
+  return ringbuf_getc(&rx_rb, c);
+}
 
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+s32_t usb_serial_rx_buf(u8_t *buf, u16_t len) {
+  return ringbuf_get(&rx_rb, buf, len);
+}
+
+s32_t usb_serial_tx_char(u8_t c) {
+  return ringbuf_putc(&tx_rb, c);
+}
+
+s32_t usb_serial_tx_buf(u8_t *buf, u16_t len) {
+  return ringbuf_put(&tx_rb, buf, len);
+}
+
+void usb_serial_set_rx_callback(usb_serial_rx_cb cb, void *arg) {
+  // TODO
+}
+void usb_serial_get_rx_callback(usb_serial_rx_cb *cb, void **arg) {
+  // TODO
+}

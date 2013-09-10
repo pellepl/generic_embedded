@@ -71,12 +71,7 @@ typedef struct os_cond_t {
  * mutex is released
  */
 #define OS_MUTEX_ATTR_CRITICAL_IRQ     (1<<0)
-/**
- * Enabling this flag will make thread reset critical section
- * to full exit when mutex is released
- */
-#define OS_MUTEX_ATTR_CRITICAL_EXIT    (1<<1)
-#define OS_MUTEX_ATTR_REENTRANT        (1<<2)
+#define OS_MUTEX_ATTR_REENTRANT        (1<<1)
 
 u32_t OS_thread_create(os_thread *t, u32_t flags, void *(*func)(void *), void *arg, void *stack, u32_t stack_size, const char *name);
 u32_t OS_thread_id(os_thread *t);
@@ -105,9 +100,6 @@ void OS_svc_3(void *arg, ...);
 
 void OS_init(void);
 
-void __os_enter_critical_kernel(void);
-void __os_exit_critical_kernel(void);
-
 void __os_systick(void);
 void __os_pendsv(void);
 void __os_time_tick(time now);
@@ -115,13 +107,13 @@ void __os_time_tick(time now);
 os_thread *OS_DBG_get_thread_by_id(u32_t id);
 
 #if OS_DBG_MON
-bool OS_DBG_print_thread(os_thread *t, bool detail, int indent);
-bool OS_DBG_print_cond(os_cond *c, bool detail, int indent);
-bool OS_DBG_print_mutex(os_mutex *m, bool detail, int indent);
-void OS_DBG_dump();
-void OS_DBG_list_all(bool prev_preempt);
+bool OS_DBG_print_thread(u8_t io, os_thread *t, bool detail, int indent);
+bool OS_DBG_print_cond(u8_t io, os_cond *c, bool detail, int indent);
+bool OS_DBG_print_mutex(u8_t io, os_mutex *m, bool detail, int indent);
+void OS_DBG_dump(u8_t io);
+void OS_DBG_list_all(u8_t io, bool prev_preempt);
 #ifdef OS_DUMP_IRQ
-void OS_DBG_dump_irq();
+void OS_DBG_dump_irq(u8_t io);
 #endif
 #endif
 

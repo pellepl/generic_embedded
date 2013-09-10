@@ -275,8 +275,10 @@ void UART_init() {
 }
 
 
-void UART_assure_tx(uart *u, bool on) {
+bool UART_assure_tx(uart *u, bool on) {
+  bool old = u->assure_tx;
   u->assure_tx = on;
+  return old;
 }
 
 bool UART_sync_tx(uart *u, bool on) {

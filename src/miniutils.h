@@ -44,16 +44,14 @@ typedef struct {
 
 // format prints to console
 void print(const char* f, ...);
-// format prints to specified uart
-void uprint(int uart, const char* f, ...);
+// format prints to specified io
+void ioprint(int io, const char* f, ...);
 // format prints to specified string
 void sprint(char *s, const char* f, ...);
 // format prints to console with specified va_list
 void vprint(const char* f, va_list arg_p);
-// format prints to specified uart with specified va_list
-void vuprint(int uart, const char* f, va_list arg_p);
-// format prints to specified pipe with specified va_list
-void v_printf(long p, const char* f, va_list arg_p);
+// format prints to specified io with specified va_list
+void vioprint(int io, const char* f, va_list arg_p);
 // prints a neatly formatted data / ascii table of given buffer
 void printbuf(u8_t *buf, u16_t len);
 // transforms v to an ascii string in given base

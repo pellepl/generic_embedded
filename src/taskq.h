@@ -112,6 +112,6 @@ void TASK_free(task *t);
 u32_t TASK_tick();
 void TASK_wait();
 void TASK_timer();
-void TASK_dump();
+void TASK_dump(u8_t io);
 
 #endif /* TASKQ_H_ */

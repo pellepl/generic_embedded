@@ -214,7 +214,7 @@ u32_t __os_ctx_switch(void *sp) {
   os_thread *cand = NULL;
   __CLREX();  // removes the local exclusive access tag for the processor
 
-  __os_enter_critical_kernel();
+  enter_critical();
 
   if (os.current_thread != NULL) {
     TRACE_OS_CTX_LEAVE(os.current_thread);
@@ -244,7 +244,7 @@ u32_t __os_ctx_switch(void *sp) {
   if (cand != NULL) {
     list_move_last(&os.q_running, OS_ELEMENT(cand));
   }
-  __os_exit_critical_kernel();
+  exit_critical();
 
   if (cand != NULL) {
     // got a candidate, setup context
@@ -279,15 +279,15 @@ static void __os_sleepers_update(list_t *q, time now) {
   while (e && list_get_order(e) <= now) {
     // get sleeper element
     os_type type = OS_TYPE(OS_OBJ(e));
-    __os_enter_critical_kernel();
+    enter_critical();
     element_t *next_e = list_next(e);
-    __os_exit_critical_kernel();
+    exit_critical();
 
     switch (type) {
     case OS_THREAD: {
       // it was a thread, simply move from sleeping to running
       os_thread *t = OS_THREAD(e);
-      __os_enter_critical_kernel();
+      enter_critical();
       TRACE_OS_THRWAKED(t);
       list_delete(q, e);
       list_add(&os.q_running, e);
@@ -295,7 +295,7 @@ static void __os_sleepers_update(list_t *q, time now) {
       t->flags &= ~OS_THREAD_FLAG_SLEEP;
       t->ret_val = TRUE;
       __os_check_validity();
-      __os_exit_critical_kernel();
+      exit_critical();
     }
     break;
 
@@ -305,7 +305,7 @@ static void __os_sleepers_update(list_t *q, time now) {
       if (now >= e->sort_order) {
         TRACE_OS_CONDTIMWAKED(c);
         __os_sleepers_update(&c->q_sleep, now);
-        __os_enter_critical_kernel();
+        enter_critical();
         if (list_is_empty(&c->q_sleep)) {
           // conds sleep queue got empty, remove from os's sleep queue
           list_set_order(c, OS_FOREVER);
@@ -318,7 +318,7 @@ static void __os_sleepers_update(list_t *q, time now) {
           list_sort_insert(&os.q_sleep, e);
         }
         __os_check_validity();
-        __os_exit_critical_kernel();
+        exit_critical();
       }
     }
     break;
@@ -355,14 +355,14 @@ void __os_time_tick(time now) {
 }
 
 __attribute__((noreturn)) static void __os_thread_death(void) {
-  __os_enter_critical_kernel();
+  enter_critical();
   TRACE_OS_THRDEAD(os.current_thread);
   list_delete(&os.q_running, OS_ELEMENT(os.current_thread));
   list_move_all(&os.q_running, &os.current_thread->q_join);
   os.current_thread->flags = 0;
   os.current_thread = NULL;
   __os_check_validity();
-  __os_exit_critical_kernel();
+  exit_critical();
   (void)OS_thread_yield();
   // will never execute this
   while (1) {
@@ -398,33 +398,6 @@ static void OS_exit_critical(bool pre) {
   if (pre) {
     __os_enable_preemption();
   }
-}
-
-// enter critical, disable interrupts
-inline void __os_enter_critical_kernel(void) {
-  if ((__get_CONTROL() & 3) == 3) {
-    // TODO PETER
-    print("enter critical from user!!\n");
-  }
-  __disable_irq();
-  g_crit_entry++;
-  TRACE_IRQ_OFF(g_crit_entry);
-}
-
-// exit critical, enable interrupts
-inline void __os_exit_critical_kernel(void) {
-  ASSERT(g_crit_entry > 0);
-  g_crit_entry--;
-  TRACE_IRQ_ON(g_crit_entry);
-  if (g_crit_entry == 0) {
-    __enable_irq();
-  }
-}
-
-// reset critical, enable interrupts
-static inline void __os_reset_critical_kernel(void) {
-  g_crit_entry = 0;
-  __enable_irq();
 }
 
 //------- Public functions -----------
@@ -474,7 +447,7 @@ u32_t OS_thread_create(os_thread *t, u32_t flags, void *(*func)(void *), void *a
   list_init(&t->q_join);
   list_set_order(OS_ELEMENT(t), OS_FOREVER);
 
-  __os_enter_critical_kernel();
+  enter_critical();
   list_add(&os.q_running, OS_ELEMENT(t));
 #if OS_DBG_MON & OS_THREAD_PEERS > 0
   {
@@ -494,7 +467,7 @@ u32_t OS_thread_create(os_thread *t, u32_t flags, void *(*func)(void *), void *a
 #endif
   TRACE_OS_THRCREATE(t);
   __os_check_validity();
-  __os_exit_critical_kernel();
+  exit_critical();
 
   __os_enable_preemption();
 
@@ -524,12 +497,12 @@ void OS_thread_join(os_thread *t) {
   os_thread *self = OS_thread_self();
   ASSERT(self);
   ASSERT(t != self);
-  __os_enter_critical_kernel();
+  enter_critical();
   if (t->flags & OS_THREAD_FLAG_ALIVE) {
     list_delete(&os.q_running, OS_ELEMENT(self));
     list_add(&t->q_join, OS_ELEMENT(self));
   }
-  __os_exit_critical_kernel();
+  exit_critical();
 }
 
 u32_t OS_mutex_init(os_mutex *m, u32_t attrs) {
@@ -550,14 +523,14 @@ u32_t OS_mutex_init(os_mutex *m, u32_t attrs) {
 void OS_thread_sleep(time delay) {
   os_thread *self = OS_thread_self();
   time awake = SYS_get_time_ms() + delay;
-  __os_enter_critical_kernel();
+  enter_critical();
   TRACE_OS_THRSLEEP(self);
   list_delete(&os.q_running, OS_ELEMENT(self));
   list_set_order(OS_ELEMENT(self), awake);
   list_sort_insert(&os.q_sleep, OS_ELEMENT(self));
   __os_update_first_awake();
   self->flags |= OS_THREAD_FLAG_SLEEP;
-  __os_exit_critical_kernel();
+  exit_critical();
   (void)OS_thread_yield();
 }
 
@@ -567,13 +540,13 @@ static u32_t OS_mutex_lock_internal(os_mutex *m) {
   u32_t res = 0;
 
   if (m->attrs & OS_MUTEX_ATTR_REENTRANT) {
-    __os_enter_critical_kernel();
+    enter_critical();
     if (m->owner == self) {
       m->depth++;
-      __os_exit_critical_kernel();
+      exit_critical();
       return 0;
     }
-    __os_exit_critical_kernel();
+    exit_critical();
   } else {
     ASSERT(m->owner != self);
   }
@@ -594,15 +567,15 @@ static u32_t OS_mutex_lock_internal(os_mutex *m) {
 
     if (!taken) {
       // mutex already busy
-      __os_enter_critical_kernel();
+      enter_critical();
       TRACE_OS_MUT_WAITLOCK(self);
       list_delete(&os.q_running, OS_ELEMENT(self));
       list_add(&m->q_block, OS_ELEMENT(self));
-      __os_exit_critical_kernel();
+      exit_critical();
       res = OS_thread_yield();
     } else {
       // mutex taken
-      __os_enter_critical_kernel();
+      enter_critical();
       TRACE_OS_MUT_ACQLOCK(self);
       m->owner = self;
       if (m->attrs & OS_MUTEX_ATTR_REENTRANT) {
@@ -613,8 +586,8 @@ static u32_t OS_mutex_lock_internal(os_mutex *m) {
       m->entered++;
 #endif
       if ((m->attrs & OS_MUTEX_ATTR_CRITICAL_IRQ) == 0) {
-        // mutex is irq safe, keep critical lock
-        __os_exit_critical_kernel();
+        // mutex is irq safe, keep critical lock gained when taking mutex
+        exit_critical();
       }
 
     }
@@ -632,7 +605,7 @@ u32_t OS_mutex_unlock_internal(os_mutex *m, bool full) {
   ASSERT(m->owner == OS_thread_self());
 
   // reinsert all waiting threads to running queue
-  __os_enter_critical_kernel();
+  enter_critical();
   if (m->attrs & OS_MUTEX_ATTR_REENTRANT) {
     if (full) {
       // full reentrant unlock
@@ -640,7 +613,7 @@ u32_t OS_mutex_unlock_internal(os_mutex *m, bool full) {
     }
     if (m->depth > 0) {
       m->depth--;
-      __os_exit_critical_kernel();
+      exit_critical();
       return m->depth + 1;
     }
   }
@@ -656,12 +629,10 @@ u32_t OS_mutex_unlock_internal(os_mutex *m, bool full) {
 #endif
   __os_check_validity();
   __os_update_preemption();
-  __os_exit_critical_kernel();
-  if (m->attrs & OS_MUTEX_ATTR_CRITICAL_EXIT) {
-    __os_reset_critical_kernel();
-  } else if (m->attrs & OS_MUTEX_ATTR_CRITICAL_IRQ) {
-    // mutex was irq safe, release the extra critical lock taken on mutex_lock
-    __os_exit_critical_kernel();
+  exit_critical();
+  if (m->attrs & OS_MUTEX_ATTR_CRITICAL_IRQ) {
+    // mutex was irq safe, release the extra critical lock taken in mutex_lock
+    exit_critical();
   }
 
 
@@ -679,13 +650,13 @@ bool OS_mutex_try_lock(os_mutex *m) {
   bool taken = TRUE;
 
   if (m->attrs & OS_MUTEX_ATTR_REENTRANT) {
-    __os_enter_critical_kernel();
+    enter_critical();
     if (m->owner == self) {
       m->depth++;
-      __os_exit_critical_kernel();
+      exit_critical();
       return TRUE;
     }
-    __os_exit_critical_kernel();
+    exit_critical();
   } else {
     ASSERT(m->owner != self);
   }
@@ -740,7 +711,7 @@ u32_t OS_cond_wait(os_cond *c, os_mutex *m) {
   u32_t r;
   ASSERT((void*)c >= RAM_BEGIN);
   ASSERT((void*)c < RAM_END);
-  __os_enter_critical_kernel();
+  enter_critical();
   TRACE_OS_CONDWAIT(c);
   //ASSERT(strcmp("main_kernel", self->name) != 0);
   if (m) {
@@ -752,7 +723,7 @@ u32_t OS_cond_wait(os_cond *c, os_mutex *m) {
 #if OS_DBG_MON
   c->waiting++;
 #endif
-  __os_exit_critical_kernel();
+  exit_critical();
   r = OS_thread_yield();
   if (m) {
     (void)OS_mutex_lock_internal(m);
@@ -765,7 +736,7 @@ u32_t OS_cond_timed_wait(os_cond *c, os_mutex *m, time delay) {
   u32_t r;
   os_thread *self = OS_thread_self();
   self->ret_val = FALSE;
-  __os_enter_critical_kernel();
+  enter_critical();
 
   ASSERT(strcmp("main_kernel", self->name) != 0);
 
@@ -798,7 +769,7 @@ u32_t OS_cond_timed_wait(os_cond *c, os_mutex *m, time delay) {
 #if OS_DBG_MON
   c->waiting++;
 #endif
-  __os_exit_critical_kernel();
+  exit_critical();
   r = OS_thread_yield();
   if (m) {
     (void)OS_mutex_lock_internal(m);
@@ -809,7 +780,7 @@ u32_t OS_cond_timed_wait(os_cond *c, os_mutex *m, time delay) {
 
 u32_t OS_cond_signal(os_cond *c) {
   os_thread *t;
-  __os_enter_critical_kernel();
+  enter_critical();
   TRACE_OS_CONDSIG(c);
 
   // first, check if there are sleepers
@@ -854,7 +825,7 @@ u32_t OS_cond_signal(os_cond *c) {
   }
   __os_check_validity();
   __os_update_preemption();
-  __os_exit_critical_kernel();
+  exit_critical();
   if (!os.preemption) {
     PENDING_CTX_SWITCH;
   }
@@ -863,7 +834,7 @@ u32_t OS_cond_signal(os_cond *c) {
 }
 
 u32_t OS_cond_broadcast(os_cond *c) {
-  __os_enter_critical_kernel();
+  enter_critical();
   TRACE_OS_CONDBROAD(c);
 
   // wake all sleepers
@@ -899,7 +870,7 @@ u32_t OS_cond_broadcast(os_cond *c) {
 #endif
   __os_check_validity();
   __os_update_preemption();
-  __os_exit_critical_kernel();
+  exit_critical();
   if (!os.preemption) {
     PENDING_CTX_SWITCH;
   }
@@ -951,25 +922,25 @@ void OS_init(void) {
 }
 
 #if OS_DBG_MON
-static void OS_DBG_print_thread_list(list_t *l, bool detail, int indent);
+static void OS_DBG_print_thread_list(u8_t io, list_t *l, bool detail, int indent);
 
-bool OS_DBG_print_thread(os_thread *t, bool detail, int indent) {
+bool OS_DBG_print_thread(u8_t io, os_thread *t, bool detail, int indent) {
   if (t == NULL) return FALSE;
   char tab[32];
   memset(tab, ' ', sizeof(tab));
   tab[indent] = 0;
-  print("%sthread id:%04x  addr:%08x  name:%s  order:%08x\n", tab,
+  ioprint(io, "%sthread id:%04x  addr:%08x  name:%s  order:%08x\n", tab,
       t->id, t, t->name == NULL ? "<n/a>" : t->name, t->this.e.sort_order);
   if (!detail) return TRUE;
-  print("%s       func:%08x  flags:%08x\n", tab,
+  ioprint(io, "%s       func:%08x  flags:%08x\n", tab,
       t->func, t->flags);
-  print("%s       sp:  %08x", tab,
+  ioprint(io, "%s       sp:  %08x", tab,
       t->sp);
 #if OS_STACK_CHECK
-  print(" [%s]  ", (t->sp < t->stack_start || t->sp > t->stack_end) ? TEXT_BAD("BPTR") :" ok ");
+  ioprint(io, " [%s]  ", (t->sp < t->stack_start || t->sp > t->stack_end) ? TEXT_BAD("BPTR") :" ok ");
   bool sp_start_bad = t->stack_start < RAM_BEGIN || t->stack_start > RAM_END;
   bool sp_end_bad = t->stack_end < t->stack_start || t->stack_end > RAM_END;
-  print("  sp_start:%08x [%s]  sp_end:%08x [%s]",
+  ioprint(io, "  sp_start:%08x [%s]  sp_end:%08x [%s]",
       t->stack_start,
       sp_start_bad ? TEXT_BAD("BADR") : (*(u32_t*)(t->stack_start - 4) != OS_STACK_START_MARKER ? TEXT_BAD("CRPT") : " ok "),
       t->stack_end,
@@ -984,35 +955,35 @@ bool OS_DBG_print_thread(os_thread *t, bool detail, int indent) {
       used_entries++;
     }
     u32_t perc = 100 - ((100 * used_entries) / ((t->stack_end - t->stack_start)/sizeof(u32_t)));
-    print("  used:%i%", perc);
+    ioprint(io, "  used:%i%", perc);
     if (perc == 100) {
-      print(TEXT_BAD(" FULL"));
+      ioprint(io, TEXT_BAD(" FULL"));
     } else if (perc > 90) {
-      print(TEXT_NOTE(" ALMOST FULL"));
+      ioprint(io, TEXT_NOTE(" ALMOST FULL"));
     }
   }
 #endif
 #endif
-  print("\n");
+  ioprint(io, "\n");
 
   if (!list_is_empty(&t->q_join)) {
-    print("%s       Join List (%i): \n", tab,
+    ioprint(io, "%s       Join List (%i): \n", tab,
         list_count(&t->q_join));
-    OS_DBG_print_thread_list(&t->q_join, FALSE, indent + 9);
+    OS_DBG_print_thread_list(io, &t->q_join, FALSE, indent + 9);
   }
   return TRUE;
 }
 
-static void OS_DBG_print_thread_list(list_t *l, bool detail, int indent) {
+static void OS_DBG_print_thread_list(u8_t io, list_t *l, bool detail, int indent) {
   element_t *cur = list_first(l);
   while (cur) {
     os_type type = OS_TYPE(OS_OBJ(cur));
     switch (type) {
     case OS_THREAD:
-      OS_DBG_print_thread(OS_THREAD(cur), detail, indent);
+      OS_DBG_print_thread(io, OS_THREAD(cur), detail, indent);
       break;
     case OS_COND:
-      OS_DBG_print_cond(OS_COND(cur), detail, indent);
+      OS_DBG_print_cond(io, OS_COND(cur), detail, indent);
       break;
     default:
       // TODO
@@ -1022,107 +993,107 @@ static void OS_DBG_print_thread_list(list_t *l, bool detail, int indent) {
   }
 }
 
-static void OS_DBG_list_threads() {
+static void OS_DBG_list_threads(u8_t io) {
   int i;
-  print("Running\n-------\n");
-  OS_DBG_print_thread(os.current_thread, TRUE, 2);
-  print("Scheduled\n---------\n");
-  OS_DBG_print_thread_list(&os.q_running, TRUE, 2);
-  print("Sleeping\n--------\n");
-  OS_DBG_print_thread_list(&os.q_sleep, TRUE, 2);
-  print("Thread peers\n------------\n");
+  ioprint(io, "Running\n-------\n");
+  OS_DBG_print_thread(io, os.current_thread, TRUE, 2);
+  ioprint(io, "Scheduled\n---------\n");
+  OS_DBG_print_thread_list(io, &os.q_running, TRUE, 2);
+  ioprint(io, "Sleeping\n--------\n");
+  OS_DBG_print_thread_list(io, &os.q_sleep, TRUE, 2);
+  ioprint(io, "Thread peers\n------------\n");
   for (i = 0; i < OS_THREAD_PEERS; i++) {
-    OS_DBG_print_thread(os.thread_peers[i], TRUE, 2);
+    OS_DBG_print_thread(io, os.thread_peers[i], TRUE, 2);
   }
 }
 
-bool OS_DBG_print_mutex(os_mutex *m, bool detail, int indent) {
+bool OS_DBG_print_mutex(u8_t io, os_mutex *m, bool detail, int indent) {
   if (m == NULL) return FALSE;
   char tab[32];
   memset(tab, ' ', sizeof(tab));
   tab[indent] = 0;
-  print("%smutex  id:%04x  addr:%08x  lock:%08x  attr:%08x  depth:%i\n", tab, m->id, m, m->lock, m->attrs, m->depth);
+  ioprint(io, "%smutex  id:%04x  addr:%08x  lock:%08x  attr:%08x  depth:%i\n", tab, m->id, m, m->lock, m->attrs, m->depth);
   if (!detail) return TRUE;
-  print("%s       owner: ", tab);
-  if (!OS_DBG_print_thread(m->owner, FALSE, indent+2)) {
-    print("\n");
+  ioprint(io, "%s       owner: ", tab);
+  if (!OS_DBG_print_thread(io, m->owner, FALSE, indent+2)) {
+    ioprint(io, "\n");
   }
-  print("%s       entries:%i  exits:%i\n", tab, m->entered, m->exited);
+  ioprint(io, "%s       entries:%i  exits:%i\n", tab, m->entered, m->exited);
   if (!list_is_empty(&m->q_block)) {
-    print("%s       Blocked List (%i)\n", tab, list_count(&m->q_block));
-    OS_DBG_print_thread_list(&m->q_block, FALSE, indent + 9);
+    ioprint(io, "%s       Blocked List (%i)\n", tab, list_count(&m->q_block));
+    OS_DBG_print_thread_list(io, &m->q_block, FALSE, indent + 9);
   }
   return TRUE;
 
 }
 
-static void OS_DBG_list_mutexes() {
+static void OS_DBG_list_mutexes(u8_t io) {
   int i;
-  print("Mutex peers\n-----------\n");
+  ioprint(io, "Mutex peers\n-----------\n");
   for (i = 0; i < OS_MUTEX_PEERS; i++) {
-    OS_DBG_print_mutex(os.mutex_peers[i], 2, TRUE);
+    OS_DBG_print_mutex(io, os.mutex_peers[i], 2, TRUE);
   }
 }
 
-bool OS_DBG_print_cond(os_cond *c, bool detail, int indent) {
+bool OS_DBG_print_cond(u8_t io, os_cond *c, bool detail, int indent) {
   if (c == NULL) return FALSE;
   char tab[32];
   memset(tab, ' ', sizeof(tab));
   tab[indent] = 0;
-  print("%scond   id:%04x  addr:%08x  sleepers:%s  order:%08x\n", tab,
+  ioprint(io, "%scond   id:%04x  addr:%08x  sleepers:%s  order:%08x\n", tab,
       c->id, c,  c->has_sleepers? "YES":"NO ", c->this.e.sort_order);
-  print("%s       mutex: ", tab);
-  if (!OS_DBG_print_mutex(c->mutex, FALSE, indent + 2)) {
-    print("\n");
+  ioprint(io, "%s       mutex: ", tab);
+  if (!OS_DBG_print_mutex(io, c->mutex, FALSE, indent + 2)) {
+    ioprint(io, "\n");
   }
   if (!detail) return TRUE;
-  print("%s       waits:%i  signals:%i  broadcasts:%i\n", tab,
+  ioprint(io, "%s       waits:%i  signals:%i  broadcasts:%i\n", tab,
       c->waiting, c->signalled, c->broadcasted);
   if (!list_is_empty(&c->q_block)) {
-    print("%s       Blocked List (%i)\n", tab, list_count(&c->q_block));
-    OS_DBG_print_thread_list(&c->q_block, FALSE, indent + 9);
+    ioprint(io, "%s       Blocked List (%i)\n", tab, list_count(&c->q_block));
+    OS_DBG_print_thread_list(io, &c->q_block, FALSE, indent + 9);
   }
   if (!list_is_empty(&c->q_sleep)) {
-    print("%s       TimedWait List (%i)\n", tab, list_count(&c->q_sleep));
-    OS_DBG_print_thread_list(&c->q_sleep, FALSE, indent + 9);
+    ioprint(io, "%s       TimedWait List (%i)\n", tab, list_count(&c->q_sleep));
+    OS_DBG_print_thread_list(io, &c->q_sleep, FALSE, indent + 9);
   }
   return TRUE;
 }
 
-static void OS_DBG_list_conds() {
+static void OS_DBG_list_conds(u8_t io) {
   int i;
-  print("Cond peers\n----------\n");
+  ioprint(io, "Cond peers\n----------\n");
   for (i = 0; i < OS_COND_PEERS; i++) {
-    OS_DBG_print_cond(os.cond_peers[i], 2, TRUE);
+    OS_DBG_print_cond(io, os.cond_peers[i], 2, TRUE);
   }
 }
 
-void OS_DBG_list_all(bool previous_preempt) {
-  print("OS INFO\n-------\n");
-  print("  Scheduled threads: %i\n", list_count(&os.q_running));
-  print("  Sleeping entries:  %i\n", list_count(&os.q_sleep));
-  print("  Spawned threads:   %i\n", g_thr_id);
-  print("  Critical depth:    %i\n", g_crit_entry);
-  print("  Preemption:        %s\n", previous_preempt ? "ON":"OFF");
-  print("  Now:               %i\n", SYS_get_time_ms());
-  print("  First awake:       %i (%i in future)\n", os.first_awake, os.first_awake - SYS_get_time_ms());
-  OS_DBG_list_threads();
-  OS_DBG_list_mutexes();
-  OS_DBG_list_conds();
+void OS_DBG_list_all(u8_t io, bool previous_preempt) {
+  ioprint(io, "OS INFO\n-------\n");
+  ioprint(io, "  Scheduled threads: %i\n", list_count(&os.q_running));
+  ioprint(io, "  Sleeping entries:  %i\n", list_count(&os.q_sleep));
+  ioprint(io, "  Spawned threads:   %i\n", g_thr_id);
+  ioprint(io, "  Critical depth:    %i\n", g_crit_entry);
+  ioprint(io, "  Preemption:        %s\n", previous_preempt ? "ON":"OFF");
+  ioprint(io, "  Now:               %i\n", SYS_get_time_ms());
+  ioprint(io, "  First awake:       %i (%i in future)\n", os.first_awake, os.first_awake - SYS_get_time_ms());
+  OS_DBG_list_threads(io);
+  OS_DBG_list_mutexes(io);
+  OS_DBG_list_conds(io);
 }
 
-void OS_DBG_dump() {
+void OS_DBG_dump(u8_t io) {
   bool pre = OS_enter_critical();
-  OS_DBG_list_all(pre);
+  OS_DBG_list_all(io, pre);
   OS_exit_critical(pre);
 }
 
 #ifdef OS_DUMP_IRQ
-void OS_DBG_dump_irq() {
+void OS_DBG_dump_irq(u8_t io) {
   if(EXTI_GetITStatus(OS_DUMP_IRQ_EXTI_LINE) != RESET) {
-    __os_enter_critical_kernel();
-    OS_DBG_list_all(os.preemption);
-    __os_exit_critical_kernel();
+    enter_critical();
+    OS_DBG_list_all(io, os.preemption);
+    exit_critical();
     EXTI_ClearITPendingBit(OS_DUMP_IRQ_EXTI_LINE);
   }
 }
