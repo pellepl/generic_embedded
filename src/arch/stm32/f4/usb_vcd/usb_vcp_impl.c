@@ -30,7 +30,6 @@ extern uint32_t APP_Rx_ptr_in; /* Increment this pointer or roll it back to
 static u8_t rx_data[USB_VCD_RX_BUFFER];
 static ringbuf rx_rb;
 static usb_serial_rx_cb rx_cb = NULL;
-
 static void *rx_cb_arg = 0;
 
 static uint16_t VCP_Init(void);
@@ -220,7 +219,7 @@ static uint16_t VCP_DataTx(uint8_t* Buf, uint32_t Len) {
 static uint16_t VCP_DataRx(uint8_t* Buf, uint32_t Len) {
   ringbuf_put(&rx_rb, Buf, Len);
   if (rx_cb) {
-    rx_cb( ringbuf_available(&rx_rb), rx_cb_arg );
+    rx_cb(ringbuf_available(&rx_rb), rx_cb_arg);
   }
 
   return USBD_OK;

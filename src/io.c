@@ -80,7 +80,7 @@ void IO_set_callback(u8_t io, io_rx_cb cb, void *arg) {
     UART_set_callback(_UART(io_bus[io].media_id), cb ? io_uart_cb : (void*)NULL, (void*)(u32_t)io);
     break;
   case io_usb:
-    usb_serial_set_rx_callback(io_usb_cb, arg);
+    usb_serial_set_rx_callback(io_usb_cb, (void*)(u32_t)io);
     break;
   case io_file:
     break;
