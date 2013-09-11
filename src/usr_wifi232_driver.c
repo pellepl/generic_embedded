@@ -7,7 +7,7 @@
 
 #include "usr_wifi232_driver.h"
 #include "miniutils.h"
-#include "uart_driver.h"
+#include "io.h"
 #include "taskq.h"
 
 // TODO TIMER
@@ -43,15 +43,15 @@ static void wifi_enter_config(void) {
   DBG(D_WIFI, D_DEBUG, "WIFI: enter config mode\n");
   wsta.config = TRUE;
   wsta.state = WIFI_ENTER_PLUS;
-  UART_put_char(_UART(WIFI_UART), '+');
-  UART_put_char(_UART(WIFI_UART), '+');
-  UART_put_char(_UART(WIFI_UART), '+');
+  IO_put_char(IOWIFI, '+');
+  IO_put_char(IOWIFI, '+');
+  IO_put_char(IOWIFI, '+');
 }
 
 static void wifi_exit_config(void) {
   wsta.state = WIFI_EXIT;
   DBG(D_WIFI, D_DEBUG, "WIFI: exit config mode\n");
-  UART_put_buf(_UART(WIFI_UART), (u8_t*)"at+entm\n", 8);
+  IO_put_buf(IOWIFI, (u8_t*)"at+entm\n", 8);
 }
 
 // emit command to usr wifi
@@ -61,17 +61,33 @@ static void wifi_do_command(void) {
   switch (wsta.cmd) {
   case WIFI_SCAN:
     DBG(D_WIFI, D_DEBUG, "WIFI: < at+wscan\n");
-    UART_put_buf(_UART(WIFI_UART), (u8_t*)"at+wscan\n", 9);
+    IO_put_buf(IOWIFI, (u8_t*)"at+wscan\n", 9);
     break;
   case WIFI_GET_WAN:
     DBG(D_WIFI, D_DEBUG, "WIFI: < at+wann\n");
-    UART_put_buf(_UART(WIFI_UART), (u8_t*)"at+wann\n", 8);
+    IO_put_buf(IOWIFI, (u8_t*)"at+wann\n", 8);
     break;
   case WIFI_GET_SSID:
     DBG(D_WIFI, D_DEBUG, "WIFI: < at+wsssid\n");
-    UART_put_buf(_UART(WIFI_UART), (u8_t*)"at+wsssid\n", 10);
+    IO_put_buf(IOWIFI, (u8_t*)"at+wsssid\n", 10);
     break;
   }
+}
+
+static bool wifi_read_netwaddr(u8_t nwaddr[4], cursor *c, strarg *arg) {
+  if (strarg_next_delim(c, arg, ".")) {
+    nwaddr[0] = arg->val;
+  } else return FALSE;
+  if (strarg_next_delim(c, arg, ".")) {
+    nwaddr[1] = arg->val;
+  } else return FALSE;
+  if (strarg_next_delim(c, arg, ".")) {
+    nwaddr[2] = arg->val;
+  } else return FALSE;
+  if (strarg_next_delim(c, arg, "., ")) {
+    nwaddr[3] = arg->val;
+  } else return FALSE;
+  return TRUE;
 }
 
 // read command result from usr wifi
@@ -147,44 +163,9 @@ static void wifi_on_cmd_res(char *line, u32_t strlen, u8_t linenbr) {
             wan->method = WIFI_WAN_DHCP;
           } else break;
         } else break;
-        if (strarg_next_delim(&c, &arg, ".")) {
-          wan->ip[0] = arg.val;
-        } else break;
-        if (strarg_next_delim(&c, &arg, ".")) {
-          wan->ip[1] = arg.val;
-        } else break;
-        if (strarg_next_delim(&c, &arg, ".")) {
-          wan->ip[2] = arg.val;
-        } else break;
-        if (strarg_next_delim(&c, &arg, ",")) {
-          wan->ip[3] = arg.val;
-        } else break;
-
-        if (strarg_next_delim(&c, &arg, ".")) {
-          wan->netmask[0] = arg.val;
-        } else break;
-        if (strarg_next_delim(&c, &arg, ".")) {
-          wan->netmask[1] = arg.val;
-        } else break;
-        if (strarg_next_delim(&c, &arg, ".")) {
-          wan->netmask[2] = arg.val;
-        } else break;
-        if (strarg_next_delim(&c, &arg, ",")) {
-          wan->netmask[3] = arg.val;
-        } else break;
-
-        if (strarg_next_delim(&c, &arg, ".")) {
-          wan->gateway[0] = arg.val;
-        } else break;
-        if (strarg_next_delim(&c, &arg, ".")) {
-          wan->gateway[1] = arg.val;
-        } else break;
-        if (strarg_next_delim(&c, &arg, ".")) {
-          wan->gateway[2] = arg.val;
-        } else break;
-        if (strarg_next(&c, &arg)) {
-          wan->gateway[3] = arg.val;
-        } else break;
+        if (!wifi_read_netwaddr(wan->ip, &c, &arg)) break;
+        if (!wifi_read_netwaddr(wan->netmask, &c, &arg)) break;
+        if (!wifi_read_netwaddr(wan->gateway, &c, &arg)) break;
 
         parse_ok = TRUE;
         wsta.cb(wsta.cmd, WIFI_OK, 0, wan);
@@ -228,7 +209,7 @@ static void wifi_cfg_on_line(char *line, u32_t strlen) {
   case WIFI_ENTER_PLUS:
     if (strcmp("a", line)) {
       wsta.state = WIFI_ENTER_A;
-      UART_put_char(_UART(WIFI_UART), 'a');
+      IO_put_char(IOWIFI, 'a');
     }
     break;
   case WIFI_ENTER_A:
@@ -283,25 +264,34 @@ void wifi_task_on_line(u32_t rix, void* pwix) {
   wifi_cfg_on_line(buf, len);
 }
 
-static void wifi_uart_cb(void *arg, u8_t c) {
+static void wifi_io_parse(u8_t c) {
+  if (c == '\r') return;
+  // after three +++, an 'a' is followed w/o carrige return
+  if (c == '\n' || (wsta.state == WIFI_ENTER_PLUS && c == 'a')) {
+    wsta.out[wsta.out_wix] = 0;
+    task *t = TASK_create(wifi_task_on_line, 0);
+    TASK_run(t, wsta.out_rix, (void*)(wsta.out_wix));
+    wsta.out_wix++;
+    if (wsta.out_wix >= WIFI_BUF_SIZE) {
+      wsta.out_wix = 0;
+    }
+    wsta.out_rix = wsta.out_wix;
+  } else {
+    wsta.out[wsta.out_wix] = c;
+    wsta.out_wix++;
+    if (wsta.out_wix >= WIFI_BUF_SIZE) {
+      wsta.out_wix = 0;
+    }
+  }
+}
+
+static void wifi_io_cb(u8_t io, void *arg, u16_t len) {
   if (wsta.config) {
-    if (c == '\r') return;
-    // after three +++, an 'a' is followed w/o carrige return
-    if (c == '\n' || (wsta.state == WIFI_ENTER_PLUS && c == 'a')) {
-      wsta.out[wsta.out_wix] = 0;
-      task *t = TASK_create(wifi_task_on_line, 0);
-      TASK_run(t, wsta.out_rix, (void*)(wsta.out_wix));
-      wsta.out_wix++;
-      if (wsta.out_wix >= WIFI_BUF_SIZE) {
-        wsta.out_wix = 0;
-      }
-      wsta.out_rix = wsta.out_wix;
-    } else {
-      wsta.out[wsta.out_wix] = c;
-      wsta.out_wix++;
-      if (wsta.out_wix >= WIFI_BUF_SIZE) {
-        wsta.out_wix = 0;
-      }
+    u8_t buf[256];
+    u16_t ix;
+    IO_get_buf(io, buf, len);
+    for (ix = 0; ix < len; ix++) {
+      wifi_io_parse(buf[ix]);
     }
   } else {
     // TODO data
@@ -396,7 +386,8 @@ void WIFI_state(void) {
 //////////////////////////////// init
 
 void WIFI_init(wifi_cb cb) {
-  USART_TypeDef *uart_hw = _UART(WIFI_UART)->hw;
+  // TODO implement config in uart driver instead
+  USART_TypeDef *uart_hw = (USART_TypeDef *)(_UART(WIFI_UART)->hw);
 
   USART_Cmd(uart_hw, DISABLE);
 
@@ -411,8 +402,8 @@ void WIFI_init(wifi_cb cb) {
   /* Configure the USART */
   USART_Init(uart_hw, &USART_InitStructure);
 
-  UART_assure_tx(_UART(WIFI_UART), TRUE);
-  UART_set_callback(_UART(WIFI_UART), wifi_uart_cb, 0);
+  IO_assure_tx(IOWIFI, TRUE);
+  IO_set_callback(IOWIFI, wifi_io_cb, 0);
 
   USART_Cmd(uart_hw, ENABLE);
 

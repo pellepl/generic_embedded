@@ -39,10 +39,27 @@ extern int _sqrt(int);
 typedef GPIO_TypeDef * hw_io_port;
 typedef uint16_t hw_io_pin;
 
+#if defined(PROC_STM32F1)
+
 #define GPIO_enable(port, pin) (port)->BSRR = (pin)
 #define GPIO_disable(port, pin) (port)->BSRR = ((pin)<<16)
 #define GPIO_set(port, pin_ena, pin_dis) (port)->BSRR = (pin_ena) | ((pin_dis)<<16)
 #define GPIO_read(port, pin) (((port)->IDR & (pin)) != 0)
+
+#elif defined(PROC_STM32F4)
+
+#define GPIO_enable(port, pin) (port)->BSRRL = (pin)
+#define GPIO_disable(port, pin) (port)->BSRRH = (pin)
+#define GPIO_set(port, pin_ena, pin_dis) \
+  (((volatile u32_t *)(port))[0x18/sizeof(u32_t)]) = (pin_ena) | ((pin_dis)<<16)
+#define GPIO_read(port, pin) (((port)->IDR & (pin)) != 0)
+
+#else
+
+#error "undefined processor for arch"
+
+#endif
+
 #endif
 
 /**
