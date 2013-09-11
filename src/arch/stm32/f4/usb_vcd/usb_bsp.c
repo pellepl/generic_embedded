@@ -51,7 +51,7 @@ void USB_OTG_BSP_Init(USB_OTG_CORE_HANDLE *pdev)
 */
 void USB_OTG_BSP_EnableInterrupt(USB_OTG_CORE_HANDLE *pdev)
 {
-  // irq prio is configged in target.c
+  // priorities are defined in processor.c
   NVIC_EnableIRQ(OTG_FS_IRQn);
 }
 
@@ -63,7 +63,7 @@ void USB_OTG_BSP_EnableInterrupt(USB_OTG_CORE_HANDLE *pdev)
 */
 void USB_OTG_BSP_uDelay (const uint32_t usec)
 {
-  // TODO PETER
+  // TODO PETER use system delay
   uint32_t count = 0;
   const uint32_t utime = (120 * usec / 7);
   do

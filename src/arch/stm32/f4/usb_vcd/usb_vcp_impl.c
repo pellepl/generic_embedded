@@ -35,11 +35,10 @@ static void *rx_cb_arg = 0;
 static uint16_t VCP_Init(void);
 static uint16_t VCP_DeInit(void);
 static uint16_t VCP_Ctrl(uint32_t Cmd, uint8_t* Buf, uint32_t Len);
-static uint16_t VCP_DataTx(uint8_t* Buf, uint32_t Len);
 static uint16_t VCP_DataRx(uint8_t* Buf, uint32_t Len);
 
 CDC_IF_Prop_TypeDef VCP_fops =
-{ VCP_Init, VCP_DeInit, VCP_Ctrl, VCP_DataTx, VCP_DataRx };
+{ VCP_Init, VCP_DeInit, VCP_Ctrl, /*VCP_DataTx*/0, VCP_DataRx };
 
 void usb_serial_init(void) {
   USBD_Init(&USB_OTG_dev, USB_OTG_FS_CORE_ID, &USR_desc, &USBD_CDC_cb, &USR_cb);
@@ -98,6 +97,8 @@ s32_t usb_serial_tx_buf(u8_t *buf, u16_t len) {
   }
   return len;
 }
+
+// IRQ handlers for USB FS
 
 void OTG_FS_WKUP_IRQHandler(void) {
   if (USB_OTG_dev.cfg.low_power) {
@@ -172,30 +173,6 @@ static uint16_t VCP_Ctrl(uint32_t Cmd, uint8_t* Buf, uint32_t Len) {
 
   default:
     break;
-  }
-
-  return USBD_OK;
-}
-
-/**
- * @brief  VCP_DataTx
- *         CDC received data to be send over USB IN endpoint are managed in
- *         this function.
- * @param  Buf: Buffer of data to be sent
- * @param  Len: Number of data to be sent (in bytes)
- * @retval Result of the opeartion: USBD_OK if all operations are OK else VCP_FAIL
- */
-static uint16_t VCP_DataTx(uint8_t* Buf, uint32_t Len) {
-  //  TODO PETER stuff sent from uc gets here
-  u32_t i;
-  for (i = 0; i < Len; i++) {
-    APP_Rx_Buffer[APP_Rx_ptr_in] = Buf[i];
-    APP_Rx_ptr_in++;
-
-    /* To avoid buffer overflow */
-    if (APP_Rx_ptr_in == APP_RX_DATA_SIZE) {
-      APP_Rx_ptr_in = 0;
-    }
   }
 
   return USBD_OK;
