@@ -386,29 +386,17 @@ void WIFI_state(void) {
 //////////////////////////////// init
 
 void WIFI_init(wifi_cb cb) {
-  // TODO implement config in uart driver instead
-  USART_TypeDef *uart_hw = (USART_TypeDef *)(_UART(WIFI_UART)->hw);
-
-  USART_Cmd(uart_hw, DISABLE);
-
-  USART_InitTypeDef USART_InitStructure;
-  USART_InitStructure.USART_BaudRate = WIFI_UART_BAUD;
-  USART_InitStructure.USART_WordLength = USART_WordLength_8b;
-  USART_InitStructure.USART_StopBits = USART_StopBits_1;
-  USART_InitStructure.USART_Parity = USART_Parity_No ;
-  USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
-  USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
-
-  /* Configure the USART */
-  USART_Init(uart_hw, &USART_InitStructure);
+  UART_config(_UART(WIFI_UART), 0,0,0,0,0, FALSE);
 
   IO_assure_tx(IOWIFI, TRUE);
   IO_set_callback(IOWIFI, wifi_io_cb, 0);
 
-  USART_Cmd(uart_hw, ENABLE);
-
   memset(&wsta, 0, sizeof(wsta));
   wsta.cb = cb;
+
+  UART_config(_UART(WIFI_UART), WIFI_UART_BAUD, UART_DATABITS_8, UART_STOPBITS_1,
+      UART_PARITY_NONE, UART_FLOWCONTROL_NONE, TRUE);
+
 }
 /*
 AT+WMODE

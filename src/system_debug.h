@@ -180,6 +180,7 @@ extern const char* __dbg_level_str[4];
 extern u16_t _trace_log[TRACE_SIZE];
 extern volatile u32_t _trace_log_ix;
 
+
 #define TRACE_LOG(op, var)   \
   do { _trace_log[_trace_log_ix] = (((op)<<8)|((var)&0xff)); \
     _trace_log_ix = (_trace_log_ix >= TRACE_SIZE-1) ? 0 : (_trace_log_ix + 1); \
@@ -196,7 +197,6 @@ extern volatile u32_t _trace_log_ix;
       _trace_log[(_trace_log_ix-1)&(TRACE_SIZE-1)] = (_TRC_OP_MS_TICK<<8) | (((tmp & 0xff) + 1) & 0xff); \
     } \
   } while (0);
-
 
 #define TRACE_NAMES \
     { "<>", \

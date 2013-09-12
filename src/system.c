@@ -6,6 +6,7 @@
  */
 
 #include "system.h"
+#include "system_debug.h"
 #include "miniutils.h"
 #include "arch.h"
 #include "io.h"
@@ -20,7 +21,7 @@
 #include "cnc_control.h"
 #endif
 
-volatile u32_t __dbg_mask = 0xffffffff;
+volatile u32_t __dbg_mask = CONFIG_DEFAULT_DEBUG_MASK;
 volatile u32_t __dbg_level = D_DEBUG;
 
 #ifdef DBG_TRACE_MON

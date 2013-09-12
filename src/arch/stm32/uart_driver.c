@@ -242,39 +242,6 @@ void UART_get_callback(uart *u, uart_rx_callback *rx_f, void **arg) {
 
 uart __uart_vec[CONFIG_UART_CNT];
 
-void UART_init() {
-  memset(__uart_vec, 0, sizeof(__uart_vec));
-  int uc = 0;
-
-#ifdef CONFIG_UART1
-  _UART(uc++)->hw = USART1;
-#endif
-#ifdef CONFIG_UART2
-  _UART(uc++)->hw = USART2;
-#endif
-#ifdef CONFIG_UART3
-  _UART(uc++)->hw = USART3;
-#endif
-#ifdef CONFIG_UART4
-  _UART(uc++)->hw = UART4;
-#endif
-
-  uc = 0;
-#ifdef CONFIG_UART1
-  UART_TX_IRQ_OFF(_UART(uc++));
-#endif
-#ifdef CONFIG_UART2
-  UART_TX_IRQ_OFF(_UART(uc++));
-#endif
-#ifdef CONFIG_UART3
-  UART_TX_IRQ_OFF(_UART(uc++));
-#endif
-#ifdef CONFIG_UART4
-  UART_TX_IRQ_OFF(_UART(uc++));
-#endif
-}
-
-
 bool UART_assure_tx(uart *u, bool on) {
   bool old = u->assure_tx;
   u->assure_tx = on;
@@ -287,3 +254,83 @@ bool UART_sync_tx(uart *u, bool on) {
   return old;
 }
 
+bool UART_config(uart *uart, u32_t baud, UART_databits databits,
+    UART_stopbits stopbits, UART_parity parity, UART_flowcontrol flowcontrol,
+    bool activate) {
+  USART_InitTypeDef cfg;
+
+  USART_Cmd(UART_HW(uart), DISABLE);
+
+  if (activate) {
+    cfg.USART_BaudRate = baud;
+    switch (databits) {
+    case UART_DATABITS_8: cfg.USART_WordLength = USART_WordLength_8b; break;
+    case UART_DATABITS_9: cfg.USART_WordLength = USART_WordLength_9b; break;
+    default: return FALSE;
+    }
+    switch (stopbits) {
+    case UART_STOPBITS_0_5: cfg.USART_StopBits = USART_StopBits_0_5; break;
+    case UART_STOPBITS_1: cfg.USART_StopBits = USART_StopBits_1; break;
+    case UART_STOPBITS_1_5: cfg.USART_StopBits = USART_StopBits_1_5; break;
+    case UART_STOPBITS_2: cfg.USART_StopBits = USART_StopBits_2; break;
+    default: return FALSE;
+    }
+    switch (parity) {
+    case UART_PARITY_NONE: cfg.USART_Parity = USART_Parity_No; break;
+    case UART_PARITY_EVEN: cfg.USART_Parity = USART_Parity_Even; break;
+    case UART_PARITY_ODD: cfg.USART_Parity = USART_Parity_Odd; break;
+    default: return FALSE;
+    }
+    switch (flowcontrol) {
+    case UART_FLOWCONTROL_NONE: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_None; break;
+    case UART_FLOWCONTROL_RTS: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_RTS; break;
+    case UART_FLOWCONTROL_CTS: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_CTS; break;
+    case UART_FLOWCONTROL_RTS_CTS: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_RTS_CTS; break;
+    default: return FALSE;
+    }
+    cfg.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
+    USART_Init(UART_HW(uart), &cfg);
+
+    // Enable USART interrupts
+    USART_ITConfig(UART_HW(uart), USART_IT_TC, DISABLE);
+    USART_ITConfig(UART_HW(uart), USART_IT_TXE, DISABLE);
+    USART_ITConfig(UART_HW(uart), USART_IT_RXNE, ENABLE);
+    USART_Cmd(UART_HW(uart), ENABLE);
+  } else {
+    USART_ITConfig(UART_HW(uart), USART_IT_TC, DISABLE);
+    USART_ITConfig(UART_HW(uart), USART_IT_TXE, DISABLE);
+    USART_ITConfig(UART_HW(uart), USART_IT_RXNE, DISABLE);
+  }
+  return TRUE;
+}
+
+
+void UART_init() {
+  memset(__uart_vec, 0, sizeof(__uart_vec));
+  int uc = 0;
+
+#ifdef CONFIG_UART1
+  _UART(uc++)->hw = USART1;
+  UART_config(_UART(uc-1), UART1_SPEED, UART_DATABITS_8, UART_STOPBITS_1,
+      UART_PARITY_NONE, UART_FLOWCONTROL_NONE, TRUE);
+  UART_TX_IRQ_OFF(_UART(uc-1));
+#endif
+#ifdef CONFIG_UART2
+  _UART(uc++)->hw = USART2;
+  UART_config(_UART(uc-1), UART2_SPEED, UART_DATABITS_8, UART_STOPBITS_1,
+      UART_PARITY_NONE, UART_FLOWCONTROL_NONE, TRUE);
+  UART_TX_IRQ_OFF(_UART(uc-1));
+#endif
+#ifdef CONFIG_UART3
+  _UART(uc++)->hw = USART3;
+  UART_config(_UART(uc-1), UART3_SPEED, UART_DATABITS_8, UART_STOPBITS_1,
+      UART_PARITY_NONE, UART_FLOWCONTROL_NONE, TRUE);
+  UART_TX_IRQ_OFF(_UART(uc-1));
+#endif
+#ifdef CONFIG_UART4
+  _UART(uc++)->hw = UART4;
+  UART_config(_UART(uc-1), UART4_SPEED, UART_DATABITS_8, UART_STOPBITS_1,
+      UART_PARITY_NONE, UART_FLOWCONTROL_NONE, TRUE);
+  UART_TX_IRQ_OFF(_UART(uc-1));
+#endif
+}

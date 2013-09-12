@@ -38,7 +38,7 @@ typedef enum {
  * I2C bus
  */
 typedef struct i2c_bus_s {
-  I2C_TypeDef *hw;
+  void *hw;
 
   u8_t attached_devices;
 
