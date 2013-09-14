@@ -16,9 +16,8 @@
 
 typedef struct {
   u8_t *buffer;
-  u16_t r_ix;
-  u16_t w_ix;
-  u16_t len;
+  volatile u16_t r_ix;
+  volatile u16_t w_ix;
   u16_t max_len;
 } ringbuf;
 

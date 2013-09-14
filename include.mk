@@ -224,8 +224,13 @@ CPATH	+= ${stmusbdir}/STM32_USB_OTG_Driver/src
 INC		+= -I./${stmusbdir}/STM32_USB_Device_Library/Class/cdc/inc 
 INC		+= -I./${stmusbdir}/STM32_USB_Device_Library/Core/inc
 INC		+= -I./${stmusbdir}/STM32_USB_OTG_Driver/inc 
-CFILES	+= usb_core.c usb_dcd.c usb_dcd_int.c usbd_core.c usbd_req.c usbd_ioreq.c usbd_cdc_core.c
-
+CFILES	+= usb_core.c 
+CFILES	+= usb_dcd.c 
+CFILES	+= usb_dcd_int.c 
+CFILES	+= usbd_core.c 
+CFILES	+= usbd_req.c 
+CFILES	+= usbd_ioreq.c 
+CFILES	+= usbd_cdc_core_modified.c
 endif
 
 endif

@@ -21,6 +21,20 @@ void exit_critical(void) {
   }
 }
 
+u32_t force_leave_critical(void) {
+  if (g_crit_entry > 0) {
+    __enable_irq();
+    return 1;
+  }
+  return 0;
+}
+
+void restore_critical(u32_t s) {
+  if (s) {
+    __disable_irq();
+  }
+}
+
 void arch_reset(void) {
   NVIC_SystemReset();
 }

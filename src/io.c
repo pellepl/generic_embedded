@@ -48,7 +48,7 @@ bool IO_assure_tx(u8_t io, bool on) {
   case io_uart:
     return UART_assure_tx(_UART(io_bus[io].media_id), on);
   case io_usb:
-    return FALSE;
+    return usb_serial_assure_tx(on);
   case io_file:
     return FALSE;
   }
@@ -136,8 +136,10 @@ void IO_tx_force_char(u8_t io, u8_t c) {
   switch (io_bus[io].media) {
   case io_uart:
     UART_tx_force_char(_UART(io_bus[io].media_id), c);
+    break;
   case io_usb:
     usb_serial_tx_char(c);
+    break;
   case io_file:
     break;
   }

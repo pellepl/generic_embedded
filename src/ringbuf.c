@@ -7,127 +7,152 @@
 
 #include "ringbuf.h"
 #include "miniutils.h"
+#define RB_AVAIL(rix, wix) \
+  (wix >= rix ? (wix - rix) : (rb->max_len - (rix - wix)))
+#define RB_FREE(rix, wix) \
+  (rb->max_len - (wix >= rix ? (wix - rix) : (rb->max_len - (rix - wix))) - 1)
+#define RB_EMPTY(rix, wix) \
+  (rix == wix)
+#define RB_FULL(rix, wix) \
+  ((rix == 0 && wix == rb->max_len-1) || wix == rix-1)
 
 void ringbuf_init(ringbuf *rb, u8_t *buffer, u16_t max_len) {
   rb->max_len = max_len;
   rb->buffer = buffer;
   rb->r_ix = 0;
   rb->w_ix = 0;
-  rb->len = 0;
 }
 
 int ringbuf_getc(ringbuf *rb, u8_t *c) {
-  if (rb->len == 0) {
+  u16_t rix = rb->r_ix;
+  u16_t wix = rb->w_ix;
+  if (RB_EMPTY(rix, wix)) {
     return RB_ERR_EMPTY;
   }
   if (c) {
-    *c = rb->buffer[rb->r_ix];
+    *c = rb->buffer[rix];
   }
-  if (rb->r_ix == rb->max_len-1) {
-    rb->r_ix = 0;
+  if (rix >= rb->max_len-1) {
+    rix = 0;
   } else {
-    rb->r_ix++;
+    rix++;
   }
-  rb->len--;
+  rb->r_ix = rix;
+
   return RB_OK;
 }
 
 
 int ringbuf_putc(ringbuf *rb, u8_t c) {
-  if (rb->len == rb->max_len) {
+  u16_t rix = rb->r_ix;
+  u16_t wix = rb->w_ix;
+  if (RB_FULL(rix, wix)) {
     return RB_ERR_FULL;
   }
-  rb->buffer[rb->w_ix] = c;
-  if (rb->w_ix == rb->max_len-1) {
-    rb->w_ix = 0;
+  rb->buffer[rix] = c;
+  if (wix >= rb->max_len-1) {
+    wix = 0;
   } else {
-    rb->w_ix++;
+    wix++;
   }
-  rb->len++;
+  rb->w_ix = wix;
+
   return RB_OK;
 }
 
 int ringbuf_available(ringbuf *rb) {
-  return rb->len;
+  u16_t rix = rb->r_ix;
+  u16_t wix = rb->w_ix;
+  return RB_AVAIL(rix, wix);
 }
 
 int ringbuf_available_linear(ringbuf *rb, u8_t **ptr) {
-  if (rb->len == 0) {
+  u16_t rix = rb->r_ix;
+  u16_t wix = rb->w_ix;
+
+  if (rix == wix) {
     return 0;
   } else {
-    *ptr = &rb->buffer[rb->r_ix];
-    if (rb->r_ix + rb->len < rb->max_len) {
-      return rb->len;
+    u16_t avail = RB_AVAIL(rix, wix);
+    *ptr = &rb->buffer[rix];
+
+    if (rix + avail < rb->max_len) {
+      return avail;
     } else {
-      return rb->max_len - rb->r_ix;
+      return rb->max_len - rix;
     }
   }
 }
 
 int ringbuf_free(ringbuf *rb) {
-  return rb->max_len - rb->len;
+  u16_t rix = rb->r_ix;
+  u16_t wix = rb->w_ix;
+  return RB_FREE(rix, wix);
 }
 
 int ringbuf_put(ringbuf *rb, u8_t *buf, u16_t len) {
+  u16_t rix = rb->r_ix;
+  u16_t wix = rb->w_ix;
   int to_write;
-  if (rb->len == rb->max_len) {
+  if (RB_FULL(rix, wix)) {
     return RB_ERR_FULL;
   }
-  int free = ringbuf_free(rb);
+  u16_t free = RB_FREE(rix, wix);
   if (len > free) {
     len = free;
   }
   to_write = len;
-  if (rb->w_ix + len >= rb->max_len) {
-    u16_t part = rb->max_len - rb->w_ix;
-    memcpy(&rb->buffer[rb->w_ix], buf, part);
-    rb->len += part;
+  if (wix + len >= rb->max_len) {
+    u16_t part = rb->max_len - wix;
+    memcpy(&rb->buffer[wix], buf, part);
     buf +=part;
     to_write -= part;
-    rb->w_ix = 0;
+    wix = 0;
   }
   if (to_write > 0) {
-    memcpy(&rb->buffer[rb->w_ix], buf, to_write);
-    rb->len += to_write;
-    rb->w_ix += to_write;
+    memcpy(&rb->buffer[wix], buf, to_write);
+    wix += to_write;
   }
-  if (rb->w_ix == rb->max_len-1) {
-    rb->w_ix = 0;
+  if (wix >= rb->max_len) {
+    wix = 0;
   }
+  rb->w_ix = wix;
 
   return len;
 }
 
 int ringbuf_get(ringbuf *rb, u8_t *buf, u16_t len) {
+  u16_t rix = rb->r_ix;
+  u16_t wix = rb->w_ix;
   int to_read;
-  if (rb->len == 0) {
+  if (RB_EMPTY(rix, wix)) {
     return RB_ERR_EMPTY;
   }
-  int avail = ringbuf_available(rb);
+  u16_t avail = RB_AVAIL(rix, wix);;
   if (len > avail) {
     len = avail;
   }
   to_read = len;
-  if (rb->r_ix + len >= rb->max_len) {
-    u16_t part = rb->max_len - rb->r_ix;
+  if (rix + len >= rb->max_len) {
+    u16_t part = rb->max_len - rix;
     if (buf) {
-      memcpy(buf, &rb->buffer[rb->r_ix], part);
+      memcpy(buf, &rb->buffer[rix], part);
       buf += part;
     }
-    rb->len -= part;
     to_read -= part;
-    rb->r_ix = 0;
+    rix = 0;
   }
   if (to_read > 0) {
     if (buf) {
-      memcpy(buf, &rb->buffer[rb->r_ix], to_read);
+      memcpy(buf, &rb->buffer[rix], to_read);
     }
-    rb->len -= to_read;
-    rb->r_ix += to_read;
+     rix += to_read;
   }
-  if (rb->r_ix == rb->max_len-1) {
-    rb->r_ix = 0;
+  if (rix >= rb->max_len) {
+    rix = 0;
   }
+
+  rb->r_ix = rix;
 
   return len;
 }

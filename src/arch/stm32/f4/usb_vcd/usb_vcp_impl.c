@@ -29,8 +29,13 @@ extern uint32_t APP_Rx_ptr_in; /* Increment this pointer or roll it back to
 
 static u8_t rx_data[USB_VCD_RX_BUFFER];
 static ringbuf rx_rb;
+static u8_t tx_data[APP_RX_DATA_SIZE];
+ringbuf usb_vcd_ringbuf_tx;
+
 static usb_serial_rx_cb rx_cb = NULL;
 static void *rx_cb_arg = 0;
+static bool usb_assure_tx = FALSE;
+
 
 static uint16_t VCP_Init(void);
 static uint16_t VCP_DeInit(void);
@@ -45,6 +50,7 @@ void usb_serial_init(void) {
   USB_OTG_dev.cfg.low_power = 0;
   rx_cb = 0;
   ringbuf_init(&rx_rb, rx_data, sizeof(rx_data));
+  ringbuf_init(&usb_vcd_ringbuf_tx, tx_data, sizeof(tx_data));
 }
 
 void usb_serial_set_rx_callback(usb_serial_rx_cb cb, void *arg) {
@@ -71,31 +77,45 @@ s32_t usb_serial_rx_buf(u8_t *buf, u16_t len) {
 
 
 s32_t usb_serial_tx_char(u8_t c) {
-  APP_Rx_Buffer[APP_Rx_ptr_in] = c;
-  APP_Rx_ptr_in++;
-  if (APP_Rx_ptr_in >= APP_RX_DATA_SIZE) {
-    APP_Rx_ptr_in = 0;
-  }
-  return 1;
+  s32_t res;
+  do {
+    enter_critical();
+    res = ringbuf_putc(&usb_vcd_ringbuf_tx, c);
+    exit_critical();
+    if (usb_assure_tx && res == RB_ERR_FULL) {
+      u32_t s = force_leave_critical();
+      SYS_hardsleep_ms(10);
+      restore_critical(s);
+    }
+  } while (usb_assure_tx && res == RB_ERR_FULL);
+  return res;
 }
 
 s32_t usb_serial_tx_buf(u8_t *buf, u16_t len) {
-  if (APP_Rx_ptr_in + len >= APP_RX_DATA_SIZE) {
-    u32_t avail = APP_RX_DATA_SIZE - APP_Rx_ptr_in;
-    memcpy(&APP_Rx_Buffer[APP_Rx_ptr_in], buf, avail);
-    buf += avail;
-    len -= avail;
-    APP_Rx_ptr_in = 0;
-  }
-  if (len > 0) {
-    len = MIN(len, APP_RX_DATA_SIZE);
-    memcpy(&APP_Rx_Buffer[APP_Rx_ptr_in], buf, len);
-    APP_Rx_ptr_in += len;
-    if (APP_Rx_ptr_in >= APP_RX_DATA_SIZE) {
-      APP_Rx_ptr_in = 0;
+  s32_t res;
+  s32_t sent = 0;
+  do {
+    enter_critical();
+    res = ringbuf_put(&usb_vcd_ringbuf_tx, buf, len);
+    exit_critical();
+    if (res == RB_ERR_FULL) {
+      u32_t s = force_leave_critical();
+      SYS_hardsleep_ms(10);
+      restore_critical(s);
+    } else if (res >= 0) {
+      len -= res;
+      buf += res;
+    } else {
+      break;
     }
-  }
-  return len;
+  } while (usb_assure_tx && sent < len);
+  return res < 0 ? res : sent;
+}
+
+bool usb_serial_assure_tx(bool on) {
+  bool old = usb_assure_tx;
+  usb_assure_tx = on;
+  return old;
 }
 
 // IRQ handlers for USB FS
