@@ -76,39 +76,45 @@ s32_t usb_serial_rx_buf(u8_t *buf, u16_t len) {
 }
 
 
+#define BLOCKING_TX_TRIES   10
+
 s32_t usb_serial_tx_char(u8_t c) {
   s32_t res;
+  u32_t spoon_guard = BLOCKING_TX_TRIES;
   do {
     enter_critical();
     res = ringbuf_putc(&usb_vcd_ringbuf_tx, c);
     exit_critical();
-    if (usb_assure_tx && res == RB_ERR_FULL) {
-      u32_t s = force_leave_critical();
+    if (!within_critical() && usb_assure_tx && res == RB_ERR_FULL) {
       SYS_hardsleep_ms(10);
-      restore_critical(s);
     }
-  } while (usb_assure_tx && res == RB_ERR_FULL);
+  } while (usb_assure_tx && res == RB_ERR_FULL && --spoon_guard);
+  if (spoon_guard == 0) {
+    res = RB_ERR_FULL;
+  }
   return res;
 }
 
 s32_t usb_serial_tx_buf(u8_t *buf, u16_t len) {
   s32_t res;
   s32_t sent = 0;
+  u32_t spoon_guard = BLOCKING_TX_TRIES;
   do {
     enter_critical();
     res = ringbuf_put(&usb_vcd_ringbuf_tx, buf, len);
     exit_critical();
-    if (res == RB_ERR_FULL) {
-      u32_t s = force_leave_critical();
+    if (!within_critical() && res == RB_ERR_FULL) {
       SYS_hardsleep_ms(10);
-      restore_critical(s);
     } else if (res >= 0) {
       len -= res;
       buf += res;
     } else {
       break;
     }
-  } while (usb_assure_tx && sent < len);
+  } while (usb_assure_tx && sent < len && --spoon_guard);
+  if (spoon_guard == 0) {
+    res = RB_ERR_FULL;
+  }
   return res < 0 ? res : sent;
 }
 
@@ -121,16 +127,20 @@ bool usb_serial_assure_tx(bool on) {
 // IRQ handlers for USB FS
 
 void OTG_FS_WKUP_IRQHandler(void) {
+  TRACE_IRQ_ENTER(OTG_FS_WKUP_IRQn);
   if (USB_OTG_dev.cfg.low_power) {
 //    *(uint32_t *) (0xE000ED10) &= 0xFFFFFFF9;
 //    SystemInit();
 //    USB_OTG_UngateClock(&USB_OTG_dev);
   }
   EXTI_ClearITPendingBit(EXTI_Line18);
+  TRACE_IRQ_EXIT(OTG_FS_WKUP_IRQn);
 }
 
 void OTG_FS_IRQHandler(void) {
+  //TRACE_IRQ_ENTER(OTG_FS_IRQn);
   USBD_OTG_ISR_Handler(&USB_OTG_dev);
+  //TRACE_IRQ_EXIT(OTG_FS_IRQn);
 }
 
 /* Private functions ---------------------------------------------------------*/

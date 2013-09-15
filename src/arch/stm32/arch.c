@@ -1,6 +1,6 @@
 #include "arch.h"
 
-static u32_t g_crit_entry = 0;
+static volatile u32_t g_crit_entry = 0;
 
 void enter_critical(void) {
   if ((__get_CONTROL() & 3) == 3) {
@@ -21,18 +21,8 @@ void exit_critical(void) {
   }
 }
 
-u32_t force_leave_critical(void) {
-  if (g_crit_entry > 0) {
-    __enable_irq();
-    return 1;
-  }
-  return 0;
-}
-
-void restore_critical(u32_t s) {
-  if (s) {
-    __disable_irq();
-  }
+bool within_critical(void) {
+  return g_crit_entry > 0;
 }
 
 void arch_reset(void) {

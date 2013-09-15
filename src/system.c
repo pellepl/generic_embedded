@@ -27,6 +27,7 @@ volatile u32_t __dbg_level = D_DEBUG;
 #ifdef DBG_TRACE_MON
 u16_t _trace_log[TRACE_SIZE];
 volatile u32_t _trace_log_ix = 0;
+volatile bool __trace = TRUE;
 #endif
 
 #ifdef DBG_LEVEL_PREFIX
@@ -193,16 +194,35 @@ __attribute__ (( noreturn )) void SYS_reboot(enum reboot_reason_e r) {
   while (1);
 }
 
+#ifdef DBG_TRACE_MON
+bool __trace_start(void) {
+  bool o = __trace;
+  __trace = TRUE;
+  return o;
+}
+bool __trace_stop(void) {
+  bool o = __trace;
+  __trace = FALSE;
+  return o;
+}
+bool __trace_set(bool x) {
+  bool o = __trace;
+  __trace = x;
+  return o;
+}
+#endif
+
 void SYS_dump_trace(u8_t io) {
 #ifdef DBG_TRACE_MON
-  const char *msg_text[] = TRACE_NAMES;
-  const char *irq_text[] = TRACE_IRQ_NAMES;
+  bool tracing = TRACE_STOP();
+
+#ifdef CONFIG_OS
   char cur_thread[16];
-
-  enter_critical();
-
   memset(cur_thread, '.', sizeof(cur_thread));
   cur_thread[sizeof(cur_thread)-1] = 0;
+#else
+  char cur_thread[] = " ";
+#endif
 
   bool old_blocking_tx = IO_blocking_tx(io, TRUE);
   IO_tx_flush(io);
@@ -279,7 +299,7 @@ void SYS_dump_trace(u8_t io) {
 #endif
     case _TRC_OP_IRQ_ENTER:
     case _TRC_OP_IRQ_EXIT:
-      ioprint(io, "%s  %s  %s\n", cur_thread, msg_text[op], irq_text[arg]);
+      ioprint(io, "%s  %s  %s\n", cur_thread, TRACE_NAMES[op], TRACE_IRQ_NAMES[arg]);
       break;
 #ifdef CONFIG_OS
     case _TRC_OP_OS_SLEEP:
@@ -288,14 +308,14 @@ void SYS_dump_trace(u8_t io) {
       //no break
 #endif
     default:
-      ioprint(io, "%s  %s  %02x\n", cur_thread, msg_text[op], arg);
+      ioprint(io, "%s  %s  %02x\n", cur_thread, TRACE_NAMES[op], arg);
       break;
     }
   };
   IO_tx_flush(io);
 
   IO_blocking_tx(io, old_blocking_tx);
-  exit_critical();
+  TRACE_SET(tracing);
 #endif
 }
 

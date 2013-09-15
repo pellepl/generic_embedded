@@ -179,16 +179,16 @@ extern const char* __dbg_level_str[4];
 #endif
 extern u16_t _trace_log[TRACE_SIZE];
 extern volatile u32_t _trace_log_ix;
-
+extern volatile bool __trace;
 
 #define TRACE_LOG(op, var)   \
-  do { _trace_log[_trace_log_ix] = (((op)<<8)|((var)&0xff)); \
+  if (__trace) do { _trace_log[_trace_log_ix] = (((op)<<8)|((var)&0xff)); \
     _trace_log_ix = (_trace_log_ix >= TRACE_SIZE-1) ? 0 : (_trace_log_ix + 1); \
   } while (0);
 
 
 #define TRACE_LOG_MS(op, var)   \
-  do {  \
+  if (__trace) do {  \
     u16_t tmp = _trace_log[(_trace_log_ix-1)&(TRACE_SIZE-1)]; \
     if ((tmp >> 8) != _TRC_OP_MS_TICK) { \
       _trace_log[_trace_log_ix] = ((op)<<8); \
@@ -198,22 +198,132 @@ extern volatile u32_t _trace_log_ix;
     } \
   } while (0);
 
-#define TRACE_NAMES \
-    { "<>", \
-  "ms_tick", \
-  "irq_enter","irq_exit ", \
-  "irq_on", "irq_off", \
-  "ctx_leave", "ctx_enter", \
-  "thr_create", "thr_yield", "thr_sleep", "thr_dead", \
-  "mutex_lock", "mutex_acquire", "mutex_wait", "mutex_unlock", \
-  "cond_wait", "cond_tim_wait", "cond_signal", "cond_sig_waked", "cond_broadcast", "cond_tim_waked", \
-  "thr_wakeup", "os_sleep", \
-  "preemption", \
-  "task_run", "task_enter", "task_exit ", "task_timer", \
-  "user_msg" \
-    }
+#define TRACE_SET(x)    __trace_set(x);
+#define TRACE_START(x)  __trace_start(x);
+#define TRACE_STOP(x)   __trace_stop(x);
+
+bool __trace_start(void);
+bool __trace_stop(void);
+bool __trace_set(bool x);
+
+static const char* const TRACE_NAMES[] = {
+  "<>",
+  "ms_tick",
+  "irq_enter","irq_exit ",
+  "irq_on", "irq_off",
+  "ctx_leave", "ctx_enter",
+  "thr_create", "thr_yield", "thr_sleep", "thr_dead",
+  "mutex_lock", "mutex_acquire", "mutex_wait", "mutex_unlock",
+  "cond_wait", "cond_tim_wait", "cond_signal", "cond_sig_waked", "cond_broadcast", "cond_tim_waked",
+  "thr_wakeup", "os_sleep",
+  "preemption",
+  "task_run", "task_enter", "task_exit ", "task_timer",
+  "user_msg"
+};
 
 #ifdef ARCH_STM32
+
+static const char* const TRACE_IRQ_NAMES[] = {
+  "SVCall_IRQn",                 /*-5*/
+  "DebugMonitor_IRQn",           /*-4*/
+  "???",                         /*-3*/
+  "PendSV_IRQn",                 /*-2*/
+  "SysTick_IRQn",                /*-1*/
+  "WWDG_IRQn",                   /*0*/
+  "PVD_IRQn",                    /*1*/
+  "TAMP_STAMP_IRQn",             /*2*/
+  "RTC_WKUP_IRQn",               /*3*/
+  "FLASH_IRQn",                  /*4*/
+  "RCC_IRQn",                    /*5*/
+  "EXTI0_IRQn",                  /*6*/
+  "EXTI1_IRQn",                  /*7*/
+  "EXTI2_IRQn",                  /*8*/
+  "EXTI3_IRQn",                  /*9*/
+  "EXTI4_IRQn",                  /*10*/
+  "DMA1_Stream0_IRQn",           /*11*/
+  "DMA1_Stream1_IRQn",           /*12*/
+  "DMA1_Stream2_IRQn",           /*13*/
+  "DMA1_Stream3_IRQn",           /*14*/
+  "DMA1_Stream4_IRQn",           /*15*/
+  "DMA1_Stream5_IRQn",           /*16*/
+  "DMA1_Stream6_IRQn",           /*17*/
+  "ADC_IRQn",                    /*18*/
+  "CAN1_TX_IRQn",                /*19*/
+  "CAN1_RX0_IRQn",               /*20*/
+  "CAN1_RX1_IRQn",               /*21*/
+  "CAN1_SCE_IRQn",               /*22*/
+  "EXTI9_5_IRQn",                /*23*/
+  "TIM1_BRK_TIM9_IRQn",          /*24*/
+  "TIM1_UP_TIM10_IRQn",          /*25*/
+  "TIM1_TRG_COM_TIM11_IRQn",     /*26*/
+  "TIM1_CC_IRQn",                /*27*/
+  "TIM2_IRQn",                   /*28*/
+  "TIM3_IRQn",                   /*29*/
+  "TIM4_IRQn",                   /*30*/
+  "I2C1_EV_IRQn",                /*31*/
+  "I2C1_ER_IRQn",                /*32*/
+  "I2C2_EV_IRQn",                /*33*/
+  "I2C2_ER_IRQn",                /*34*/
+  "SPI1_IRQn",                   /*35*/
+  "SPI2_IRQn",                   /*36*/
+  "USART1_IRQn",                 /*37*/
+  "USART2_IRQn",                 /*38*/
+  "USART3_IRQn",                 /*39*/
+  "EXTI15_10_IRQn",              /*40*/
+  "RTC_Alarm_IRQn",              /*41*/
+  "OTG_FS_WKUP_IRQn",            /*42*/
+  "TIM8_BRK_TIM12_IRQn",         /*43*/
+  "TIM8_UP_TIM13_IRQn",          /*44*/
+  "TIM8_TRG_COM_TIM14_IRQn",     /*45*/
+  "TIM8_CC_IRQn",                /*46*/
+  "DMA1_Stream7_IRQn",           /*47*/
+  "FSMC_IRQn",                   /*48*/
+  "SDIO_IRQn",                   /*49*/
+  "TIM5_IRQn",                   /*50*/
+  "SPI3_IRQn",                   /*51*/
+  "UART4_IRQn",                  /*52*/
+  "UART5_IRQn",                  /*53*/
+  "TIM6_DAC_IRQn",               /*54*/
+  "TIM7_IRQn",                   /*55*/
+  "DMA2_Stream0_IRQn",           /*56*/
+  "DMA2_Stream1_IRQn",           /*57*/
+  "DMA2_Stream2_IRQn",           /*58*/
+  "DMA2_Stream3_IRQn",           /*59*/
+  "DMA2_Stream4_IRQn",           /*60*/
+  "ETH_IRQn",                    /*61*/
+  "ETH_WKUP_IRQn",               /*62*/
+  "CAN2_TX_IRQn",                /*63*/
+  "CAN2_RX0_IRQn",               /*64*/
+  "CAN2_RX1_IRQn",               /*65*/
+  "CAN2_SCE_IRQn",               /*66*/
+  "OTG_FS_IRQn",                 /*67*/
+  "DMA2_Stream5_IRQn",           /*68*/
+  "DMA2_Stream6_IRQn",           /*69*/
+  "DMA2_Stream7_IRQn",           /*70*/
+  "USART6_IRQn",                 /*71*/
+  "I2C3_EV_IRQn",                /*72*/
+  "I2C3_ER_IRQn",                /*73*/
+  "OTG_HS_EP1_OUT_IRQn",         /*74*/
+  "OTG_HS_EP1_IN_IRQn",          /*75*/
+  "OTG_HS_WKUP_IRQn",            /*76*/
+  "OTG_HS_IRQn",                 /*77*/
+  "DCMI_IRQn",                   /*78*/
+  "CRYP_IRQn",                   /*79*/
+  "HASH_RNG_IRQn",               /*80*/
+#ifdef STM32F40XX
+  "FPU_IRQn",                    /*81*/
+#endif /* STM32F40XX */
+#ifdef STM32F427X
+  "FPU_IRQn",                    /*81*/
+  "UART7_IRQn",                  /*82*/
+  "UART8_IRQn",                  /*83*/
+  "SPI4_IRQn",                   /*84*/
+  "SPI5_IRQn",                   /*85*/
+  "SPI6_IRQn",                   /*86*/
+#endif /* STM32F427X */
+};
+#else
+#error "undefined arch for trace"
 #define TRACE_IRQ_NAMES \
 { "<>", \
   "UART1",        "UART2",        "UART3",        "UART4", \
@@ -222,12 +332,14 @@ extern volatile u32_t _trace_log_ix;
   "SYSTICK",      "I2C_ER",       "I2C_EV",       "USB_WKU", \
   "USB_LP", \
 }
-#else
-#error "undefined arch for trace"
+
 #endif
 #else
 #define TRACE_LOG(op, var)
 #define TRACE_LOG_MS(op, var)
+#define TRACE_SET(x)    (void)(x)
+#define TRACE_START(x)  FALSE
+#define TRACE_STOP(x)   FALSE
 #endif
 
 typedef enum {
@@ -265,8 +377,13 @@ typedef enum {
 
 #define TRACE_MS_TICK(ms)           TRACE_LOG_MS(_TRC_OP_MS_TICK, ms)
 
-#define TRACE_IRQ_ENTER(irq)        TRACE_LOG(_TRC_OP_IRQ_ENTER, irq)
-#define TRACE_IRQ_EXIT(irq)         TRACE_LOG(_TRC_OP_IRQ_EXIT, irq)
+#ifdef ARCH_STM32
+#define TRACE_IRQ_ENTER(irq)        TRACE_LOG(_TRC_OP_IRQ_ENTER, irq+5)
+#define TRACE_IRQ_EXIT(irq)         TRACE_LOG(_TRC_OP_IRQ_EXIT, irq+5)
+#else
+#define TRACE_IRQ_ENTER(irq)        TRACE_LOG(_TRC_OP_IRQ_ENTER, (irq))
+#define TRACE_IRQ_ENTER(irq)        TRACE_LOG(_TRC_OP_IRQ_EXIT, (irq))
+#endif
 
 #define TRACE_IRQ_ON(l)             //TRACE_LOG(_TRC_OP_IRQ_ON, l)
 #define TRACE_IRQ_OFF(l)            //TRACE_LOG(_TRC_OP_IRQ_OFF, l)

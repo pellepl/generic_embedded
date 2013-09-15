@@ -45,7 +45,7 @@ typedef struct i2c_bus_s {
   volatile i2c_state state;
   void (* i2c_bus_callback)(struct i2c_bus_s *s, int res);
 
-  u8_t addr; // lsb denotes tx (1) or rx (0)
+  u8_t addr; // lsb denotes tx (0) or rx (1)
   u8_t *buf;
   u16_t len;
   bool gen_stop;
