@@ -8,7 +8,6 @@
 #ifndef SPI_DRIVER_H_
 #define SPI_DRIVER_H_
 
-#include "stm32f10x.h"
 #include "system.h"
 
 #define SPI_BUFFER    256
@@ -22,14 +21,21 @@
  * SPI bus
  */
 typedef struct spi_bus_s {
+#ifdef ARCH_STM32
   SPI_TypeDef *hw;
+#if defined(PROC_STM32F1)
+  DMA_Channel_TypeDef *dma_rx_channel;
+  DMA_Channel_TypeDef *dma_tx_channel;
+#elif defined(PROC_STM32F4)
+  DMA_Stream_TypeDef *dma_rx_channel;
+  DMA_Stream_TypeDef *dma_tx_channel;
+#endif
   u32_t dma_rx_irq;
   u32_t dma_tx_irq;
   u32_t dma_rx_err_irq;
   u32_t dma_tx_err_irq;
-  DMA_Channel_TypeDef *dma_rx_channel;
-  DMA_Channel_TypeDef *dma_tx_channel;
   u8_t nvic_irq;
+#endif
   u8_t attached_devices;
   volatile bool busy;
   u8_t buf[SPI_BUFFER];

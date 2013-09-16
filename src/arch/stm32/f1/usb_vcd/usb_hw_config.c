@@ -151,3 +151,8 @@ void usb_serial_set_rx_callback(usb_serial_rx_cb cb, void *arg) {
 void usb_serial_get_rx_callback(usb_serial_rx_cb *cb, void **arg) {
   // TODO
 }
+
+bool usb_serial_assure_tx(bool on) {
+  // TODO
+  return FALSE;
+}

@@ -1,73 +1,6 @@
 #include "system.h"
 #include "bootloader.h"
 #include "linker_symaccess.h"
-
-// UART helpers
-
-BOOTLOADER_TEXT void b_put(char c) {
-  while ((boot.uart_hw->SR & USART_SR_TXE )== 0);
-  boot.uart_hw->DR = (c & (u16_t) 0x01FF);
-}
-
-BOOTLOADER_TEXT void b_putstr(const char *s) {
-  char c;
-  while ((c = *s++) != 0) {
-    b_put(c);
-  }
-}
-
-BOOTLOADER_TEXT void b_puthex_buf(u8_t *d, u32_t len) {
-  while (len--) {
-    b_puthex8(*d++);
-  }
-}
-
-BOOTLOADER_TEXT void b_puthex32(u32_t x) {
-  b_puthex16(x >> 16);
-  b_puthex16(x);
-}
-
-BOOTLOADER_TEXT void b_puthex16(u16_t x) {
-  b_puthex8(x >> 8);
-  b_puthex8(x);
-}
-
-BOOTLOADER_TEXT void b_puthex8(u8_t x) {
-  int i = 0;
-  while (i++ < 2) {
-    u8_t nibble = (x & (0xf0)) >> 4;
-    if (nibble < 10) {
-      b_put('0' + nibble);
-    } else {
-      b_put('a' + nibble - 10);
-    }
-    x <<= 4;
-  }
-}
-
-BOOTLOADER_TEXT void b_putint(s32_t x) {
-
-  if (x < 0) {
-    x = -x;
-    b_put('-');
-  }
-  if (x == 0) {
-    b_put('0');
-  }
-  u8_t len = 0;
-  char b[32];
-  while (x > 0) {
-    u8_t c = (x % 10);
-    b[len] = ('0' + c);
-    x /= 10;
-    len++;
-  }
-  u8_t i = 0;
-  while (i++ < len) {
-    b_put(b[len-i]);
-  }
-}
-
 // Internal flash helpers
 
 /* Flash Control Register bits */
@@ -238,6 +171,11 @@ BOOTLOADER_TEXT static FLASH_res _b_set_write_protection(u32_t FLASH_Pages) {
   return res;
 }
 
+BOOTLOADER_TEXT void b_flash_get_sector(u32_t phys_addr, u32_t *sect_addr, u32_t *sect_len) {
+  *sect_addr = phys_addr & (~(FLASH_PAGE_SIZE-1));
+  *sect_len = FLASH_PAGE_SIZE;
+}
+
 BOOTLOADER_TEXT void b_flash_open() {
   // unlock flash block
   BLDBG("FLASH: open\n");
@@ -326,55 +264,3 @@ BOOTLOADER_TEXT FLASH_res b_flash_protect() {
   // system reset must now be performed to release protection
   return res;
 }
-
-// SPI helpers
-
-BOOTLOADER_TEXT static u8_t b_spi_txrx(u8_t c) {
-#ifdef CONFIG_SPI
-  while ((boot.spi_hw->SR & SPI_I2S_FLAG_TXE )== 0);
-  boot.spi_hw->DR = c;
-  while ((boot.spi_hw->SR & SPI_I2S_FLAG_RXNE )== 0);
-  return boot.spi_hw->DR;
-#else
-  return 0;
-#endif
-}
-
-BOOTLOADER_TEXT void b_spif_read(u32_t addr, u8_t *b, u16_t len) {
-#ifdef CONFIG_SPI
-  GPIO_disable(SPI_FLASH_GPIO_PORT, SPI_FLASH_GPIO_PIN);
-
-  b_spi_txrx(0x03); // read
-  b_spi_txrx((addr >> 16) & 0xff);
-  b_spi_txrx((addr >> 8) & 0xff);
-  b_spi_txrx((addr >> 0) & 0xff);
-  // get data
-  while (len--) {
-    *b++ = b_spi_txrx(0xff);
-  }
-
-  GPIO_enable(SPI_FLASH_GPIO_PORT, SPI_FLASH_GPIO_PIN);
-#endif
-}
-
-BOOTLOADER_TEXT void b_spif_write(u32_t addr, u8_t *b, u16_t len) {
-#ifdef CONFIG_SPI
-  GPIO_disable(SPI_FLASH_GPIO_PORT, SPI_FLASH_GPIO_PIN);
-  b_spi_txrx(0x06); // write enable
-  GPIO_enable(SPI_FLASH_GPIO_PORT, SPI_FLASH_GPIO_PIN);
-  volatile int a = 0x100;
-  while (a--)
-    ;
-  GPIO_disable(SPI_FLASH_GPIO_PORT, SPI_FLASH_GPIO_PIN);
-  b_spi_txrx(0x02); // write
-  b_spi_txrx((addr >> 16) & 0xff);
-  b_spi_txrx((addr >> 8) & 0xff);
-  b_spi_txrx((addr >> 0) & 0xff);
-  // write data
-  while (len--) {
-    b_spi_txrx(*b++);
-  }
-  GPIO_enable(SPI_FLASH_GPIO_PORT, SPI_FLASH_GPIO_PIN);
-#endif
-}
-

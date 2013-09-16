@@ -27,7 +27,7 @@ typedef enum {
 #define FW_MAGIC                          0xc0defeed
 
 #define BOOTLOADER_SHMEM_UART_UIX         0
-#define BOOTLOADER_SHMEM_SPI_FLASH_UIX    1
+#define BOOTLOADER_SHMEM_MEDIA_UIX        1
 #define BOOTLOADER_SHMEM_OPERATION_UIX    4
 #define BOOTLOADER_SHMEM_SUBOPERATION_UIX 5
 #define BOOTLOADER_SHMEM_SPIF_FW_ADDR_UIX 8

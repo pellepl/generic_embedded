@@ -48,8 +48,8 @@ typedef uint16_t hw_io_pin;
 
 #elif defined(PROC_STM32F4)
 
-#define GPIO_enable(port, pin) (port)->BSRRL = (pin)
-#define GPIO_disable(port, pin) (port)->BSRRH = (pin)
+#define GPIO_enable(port, pins) (port)->BSRRL = (pins)
+#define GPIO_disable(port, pins) (port)->BSRRH = (pins)
 #define GPIO_set(port, pin_ena, pin_dis) \
   (((volatile u32_t *)(port))[0x18/sizeof(u32_t)]) = (pin_ena) | ((pin_dis)<<16)
 #define GPIO_read(port, pin) (((port)->IDR & (pin)) != 0)

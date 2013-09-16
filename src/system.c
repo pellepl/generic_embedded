@@ -286,14 +286,14 @@ void SYS_dump_trace(u8_t io) {
         } else if (op == _TRC_OP_OS_CTX_LEAVE) {
           memset(cur_thread, ' ', sizeof(cur_thread)-1);
         }
-        ioprint(io, "%s  %s  %s\n", cur_thread, msg_text[op], t->name);
+        ioprint(io, "%s  %s  %s\n", cur_thread, TRACE_NAMES[op], t->name);
       } else {
         if (op == _TRC_OP_OS_CTX_ENTER) {
           memset(cur_thread, '?', sizeof(cur_thread)-1);
         } else if (op == _TRC_OP_OS_CTX_LEAVE) {
           memset(cur_thread, ' ', sizeof(cur_thread)-1);
         }
-        ioprint(io, TEXT_BAD("%s  %s  unknown thread id: %02x\n"), cur_thread, msg_text[op], arg);
+        ioprint(io, TEXT_BAD("%s  %s  unknown thread id: %02x\n"), cur_thread, TRACE_NAMES[op], arg);
       }
       break;
 #endif

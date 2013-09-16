@@ -265,7 +265,13 @@ endif
 FLAGS	+= -DCONFIG_BOOTLOADER
 ifeq (1, $(strip $(ARCH_STM32)))
 RFILES	+= bl_exec.c 
-RFILES	+= bootloader_hal.c 
+RFILES	+= bootloader_hal_flash.c 
+ifeq (1, $(strip $(CONFIG_UART)))
+RFILES	+= bootloader_hal_uart.c 
+endif
+ifeq (1, $(strip $(CONFIG_SPI)))
+RFILES	+= bootloader_hal_spi.c 
+endif
 RFILES	+= bootloader.c
 endif
 endif

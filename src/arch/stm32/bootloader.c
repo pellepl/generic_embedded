@@ -4,7 +4,7 @@
 
 #define SHMEM ((shmem *)SHARED_MEMORY_ADDRESS)
 
-BOOTLOADER_DATA bootdata boot;
+BOOTLOADER_DATA bootdata __boot;
 
 BOOTLOADER_TEXT static bool _bootloader_check_spi_flash();
 BOOTLOADER_TEXT static FLASH_res _bootloader_flash_erase();
@@ -28,10 +28,10 @@ BOOTLOADER_TEXT static void _bootloader_fail(char *err, int errcode) {
 }
 
 BOOTLOADER_TEXT void bootloader_init() {
-  boot.uart_hw = (USART_TypeDef*)(SHMEM->user[BOOTLOADER_SHMEM_UART_UIX]);
-  boot.spi_hw = (SPI_TypeDef*)(SHMEM->user[BOOTLOADER_SHMEM_SPI_FLASH_UIX]);
-  boot.operation = SHMEM->user[BOOTLOADER_SHMEM_OPERATION_UIX];
-  boot.suboperation = SHMEM->user[BOOTLOADER_SHMEM_SUBOPERATION_UIX];
+  __boot.uart_hw = (void *)(SHMEM->user[BOOTLOADER_SHMEM_UART_UIX]);
+  __boot.media_hw = (void *)(SHMEM->user[BOOTLOADER_SHMEM_MEDIA_UIX]);
+  __boot.operation = SHMEM->user[BOOTLOADER_SHMEM_OPERATION_UIX];
+  __boot.suboperation = SHMEM->user[BOOTLOADER_SHMEM_SUBOPERATION_UIX];
   b_putstr("**** Bootloader ram domain entered\n");
 
   b_putstr("  stack pointer: ");
@@ -39,15 +39,15 @@ BOOTLOADER_TEXT void bootloader_init() {
   b_put('\n');
 
   b_putstr("  operation: ");
-  b_putint(boot.operation);
+  b_putint(__boot.operation);
   b_putstr(", subop: ");
-  b_putint(boot.suboperation);
+  b_putint(__boot.suboperation);
   b_put('\n');
 
   FLASH_res res;
-  switch (boot.operation) {
+  switch (__boot.operation) {
   case BOOTLOADER_FLASH_FIRMWARE:
-    switch (boot.suboperation) {
+    switch (__boot.suboperation) {
     case 0:
       // check spi flash contents
       b_putstr("  check spi flash image crc...\n");
@@ -116,31 +116,27 @@ BOOTLOADER_TEXT static FLASH_res _bootloader_flash_erase() {
   u32_t flash_addr = FW_FLASH_BASE;
   FLASH_res res = FLASH_OK;
 
-  b_spif_read(spi_addr, (u8_t*)&fui, sizeof(fui));
-
-  u32_t pages = (fui.len / FLASH_PAGE_SIZE) + ((fui.len % FLASH_PAGE_SIZE) == 0 ? 0:1);
+  BL_IMG_READ(spi_addr, (u8_t*)&fui, sizeof(fui));
 
   b_putstr("  erasing flash @ ");
   b_puthex32(flash_addr);
   b_putstr(", ");
   b_putint(fui.len);
-  b_putstr(" bytes, ");
-  b_putint(pages);
-  b_putstr(" pages of size ");
-  b_putint(FLASH_PAGE_SIZE);
-  b_putstr(" => ");
-  b_putint(pages*FLASH_PAGE_SIZE);
   b_putstr(" bytes\n");
 
-  u32_t page = 0;
+  u32_t flash_addr_end = flash_addr + fui.len;
+  u32_t sector;
+  u32_t sector_len;
 
-  while (res == FLASH_OK && page < pages) {
+  while (res == FLASH_OK && flash_addr < flash_addr_end) {
+    b_flash_get_sector(flash_addr, &sector, &sector_len);
+
     b_putstr("  erasing page ");
-    b_putint(page);
+    b_putint(sector);
     b_putstr(" @ ");
     b_puthex32(flash_addr);
     b_putstr(".. ");
-    res = b_flash_erase(flash_addr);
+    res = b_flash_erase(sector);
     if (res == FLASH_OK) {
       b_putstr(" OK\n");
     } else {
@@ -148,8 +144,7 @@ BOOTLOADER_TEXT static FLASH_res _bootloader_flash_erase() {
       b_putint(res);
       b_put('\n');
     }
-    flash_addr += FLASH_PAGE_SIZE;
-    page++;
+    flash_addr += sector_len;
   }
 
   return res;
@@ -163,7 +158,7 @@ BOOTLOADER_TEXT static FLASH_res _bootloader_flash_upgrade() {
   u32_t spi_ix = 0;
   FLASH_res res = FLASH_OK;
 
-  b_spif_read(spi_addr, (u8_t*)&fui, sizeof(fui));
+  BL_IMG_READ(spi_addr, (u8_t*)&fui, sizeof(fui));
 
   spi_addr += sizeof(fui);
   b_putstr("  flashing and verifying spi flash image contents @ ");
@@ -179,7 +174,7 @@ BOOTLOADER_TEXT static FLASH_res _bootloader_flash_upgrade() {
   while (res == FLASH_OK && spi_ix < fui.len) {
     u32_t b_ix;
     u16_t len = MIN(sizeof(buf), fui.len - spi_ix);
-    b_spif_read(spi_addr + spi_ix, (u8_t*)&buf[0], len);
+    BL_IMG_READ(spi_addr + spi_ix, (u8_t*)&buf[0], len);
 
     for (b_ix = 0; res == FLASH_OK && b_ix < len; b_ix += sizeof(u16_t)) {
       u16_t eword = *((u16_t*)flash_addr);
@@ -246,7 +241,7 @@ BOOTLOADER_TEXT static u16_t _bootloader_crc_ccitt_16(u16_t crc, u8_t data) {
 BOOTLOADER_TEXT static bool _bootloader_check_spi_flash() {
   fw_upgrade_info fui;
   u32_t addr = SHMEM->user[BOOTLOADER_SHMEM_SPIF_FW_ADDR_UIX];
-  b_spif_read(addr, (u8_t*)&fui, sizeof(fui));
+  BL_IMG_READ(addr, (u8_t*)&fui, sizeof(fui));
   if (fui.magic != FW_MAGIC) {
     b_putstr("  bad fw magic: ");
     b_puthex32(fui.magic);
@@ -264,7 +259,7 @@ BOOTLOADER_TEXT static bool _bootloader_check_spi_flash() {
   const u32_t start = SHMEM->user[BOOTLOADER_SHMEM_SPIF_FW_ADDR_UIX] + sizeof(fw_upgrade_info);
   for (addr = start; addr < start + fui.len; addr++) {
     u8_t c;
-    b_spif_read(addr, (u8_t*)&c, 1);
+    BL_IMG_READ(addr, (u8_t*)&c, 1);
     crc = _bootloader_crc_ccitt_16(crc, c);
   }
 

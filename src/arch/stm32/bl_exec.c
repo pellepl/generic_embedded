@@ -35,7 +35,7 @@ static void _bootloader_setup_periph() {
 
   SPI_config(_SPI_BUS(FLASH_SPI_BUS), FLASH_SPI_CONFIG);
   // save spi flash hw pointer
-  SHMEM_get()->user[BOOTLOADER_SHMEM_SPI_FLASH_UIX] = (u32_t)(_SPI_BUS(FLASH_SPI_BUS)->hw);
+  SHMEM_get()->user[BOOTLOADER_SHMEM_MEDIA_UIX] = (u32_t)(_SPI_BUS(FLASH_SPI_BUS)->hw);
 #endif
   // save stdout uart hw pointer
   SHMEM_get()->user[BOOTLOADER_SHMEM_UART_UIX] = (u32_t)(_UART(UARTSTDOUT)->hw);

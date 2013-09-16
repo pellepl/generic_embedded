@@ -206,22 +206,304 @@ bool __trace_start(void);
 bool __trace_stop(void);
 bool __trace_set(bool x);
 
-static const char* const TRACE_NAMES[] = {
-  "<>",
-  "ms_tick",
-  "irq_enter","irq_exit ",
-  "irq_on", "irq_off",
-  "ctx_leave", "ctx_enter",
-  "thr_create", "thr_yield", "thr_sleep", "thr_dead",
-  "mutex_lock", "mutex_acquire", "mutex_wait", "mutex_unlock",
-  "cond_wait", "cond_tim_wait", "cond_signal", "cond_sig_waked", "cond_broadcast", "cond_tim_waked",
-  "thr_wakeup", "os_sleep",
-  "preemption",
-  "task_run", "task_enter", "task_exit ", "task_timer",
-  "user_msg"
-};
+// trace irq definitions
 
 #ifdef ARCH_STM32
+
+#ifdef PROC_STM32F1
+
+static const char* const TRACE_IRQ_NAMES[] = {
+"SVCall_IRQn",
+"DebugMonitor_IRQn",
+"???",
+"PendSV_IRQn",
+"SysTick_IRQn",
+"WWDG_IRQn",
+"PVD_IRQn",
+"TAMPER_IRQn",
+"RTC_IRQn",
+"FLASH_IRQn",
+"RCC_IRQn",
+"EXTI0_IRQn",
+"EXTI1_IRQn",
+"EXTI2_IRQn",
+"EXTI3_IRQn",
+"EXTI4_IRQn",
+"DMA1_Channel1_IRQn",
+"DMA1_Channel2_IRQn",
+"DMA1_Channel3_IRQn",
+"DMA1_Channel4_IRQn",
+"DMA1_Channel5_IRQn",
+"DMA1_Channel6_IRQn",
+"DMA1_Channel7_IRQn",
+#ifdef STM32F10X_LD
+"ADC1_2_IRQn",
+"USB_HP_CAN1_TX_IRQn",
+"USB_LP_CAN1_RX0_IRQn",
+"CAN1_RX1_IRQn",
+"CAN1_SCE_IRQn",
+"EXTI9_5_IRQn",
+"TIM1_BRK_IRQn",
+"TIM1_UP_IRQn",
+"TIM1_TRG_COM_IRQn",
+"TIM1_CC_IRQn",
+"TIM2_IRQn",
+"TIM3_IRQn",
+"I2C1_EV_IRQn",
+"I2C1_ER_IRQn",
+"SPI1_IRQn",
+"USART1_IRQn",
+"USART2_IRQn",
+"EXTI15_10_IRQn",
+"RTCAlarm_IRQn",
+"USBWakeUp_IRQn",
+#endif /* STM32F10X_LD */
+#ifdef STM32F10X_LD_VL
+"ADC1_IRQn",
+"EXTI9_5_IRQn",
+"TIM1_BRK_TIM15_IRQn",
+"TIM1_UP_TIM16_IRQn",
+"TIM1_TRG_COM_TIM17_IRQn",
+"TIM1_CC_IRQn",
+"TIM2_IRQn",
+"TIM3_IRQn",
+"I2C1_EV_IRQn",
+"I2C1_ER_IRQn",
+"SPI1_IRQn",
+"USART1_IRQn",
+"USART2_IRQn",
+"EXTI15_10_IRQn",
+"RTCAlarm_IRQn",
+"CEC_IRQn",
+"TIM6_DAC_IRQn",
+"TIM7_IRQn",
+#endif /* STM32F10X_LD_VL */
+#ifdef STM32F10X_MD
+"ADC1_2_IRQn",
+"USB_HP_CAN1_TX_IRQn",
+"USB_LP_CAN1_RX0_IRQn",
+"CAN1_RX1_IRQn",
+"CAN1_SCE_IRQn",
+"EXTI9_5_IRQn",
+"TIM1_BRK_IRQn",
+"TIM1_UP_IRQn",
+"TIM1_TRG_COM_IRQn",
+"TIM1_CC_IRQn",
+"TIM2_IRQn",
+"TIM3_IRQn",
+"TIM4_IRQn",
+"I2C1_EV_IRQn",
+"I2C1_ER_IRQn",
+"I2C2_EV_IRQn",
+"I2C2_ER_IRQn",
+"SPI1_IRQn",
+"SPI2_IRQn",
+"USART1_IRQn",
+"USART2_IRQn",
+"USART3_IRQn",
+"EXTI15_10_IRQn",
+"RTCAlarm_IRQn",
+"USBWakeUp_IRQn",
+#endif /* STM32F10X_MD */
+#ifdef STM32F10X_MD_VL
+"ADC1_IRQn",
+"EXTI9_5_IRQn",
+"TIM1_BRK_TIM15_IRQn",
+"TIM1_UP_TIM16_IRQn",
+"TIM1_TRG_COM_TIM17_IRQn",
+"TIM1_CC_IRQn",
+"TIM2_IRQn",
+"TIM3_IRQn",
+"TIM4_IRQn",
+"I2C1_EV_IRQn",
+"I2C1_ER_IRQn",
+"I2C2_EV_IRQn",
+"I2C2_ER_IRQn",
+"SPI1_IRQn",
+"SPI2_IRQn",
+"USART1_IRQn",
+"USART2_IRQn",
+"USART3_IRQn",
+"EXTI15_10_IRQn",
+"RTCAlarm_IRQn",
+"CEC_IRQn",
+"TIM6_DAC_IRQn",
+"TIM7_IRQn",
+#endif /* STM32F10X_MD_VL */
+#ifdef STM32F10X_HD
+"ADC1_2_IRQn",
+"USB_HP_CAN1_TX_IRQn",
+"USB_LP_CAN1_RX0_IRQn",
+"CAN1_RX1_IRQn",
+"CAN1_SCE_IRQn",
+"EXTI9_5_IRQn",
+"TIM1_BRK_IRQn",
+"TIM1_UP_IRQn",
+"TIM1_TRG_COM_IRQn",
+"TIM1_CC_IRQn",
+"TIM2_IRQn",
+"TIM3_IRQn",
+"TIM4_IRQn",
+"I2C1_EV_IRQn",
+"I2C1_ER_IRQn",
+"I2C2_EV_IRQn",
+"I2C2_ER_IRQn",
+"SPI1_IRQn",
+"SPI2_IRQn",
+"USART1_IRQn",
+"USART2_IRQn",
+"USART3_IRQn",
+"EXTI15_10_IRQn",
+"RTCAlarm_IRQn",
+"USBWakeUp_IRQn",
+"TIM8_BRK_IRQn",
+"TIM8_UP_IRQn",
+"TIM8_TRG_COM_IRQn",
+"TIM8_CC_IRQn",
+"ADC3_IRQn",
+"FSMC_IRQn",
+"SDIO_IRQn",
+"TIM5_IRQn",
+"SPI3_IRQn",
+"UART4_IRQn",
+"UART5_IRQn",
+"TIM6_IRQn",
+"TIM7_IRQn",
+"DMA2_Channel1_IRQn",
+"DMA2_Channel2_IRQn",
+"DMA2_Channel3_IRQn",
+"DMA2_Channel4_5_IRQn",
+#endif /* STM32F10X_HD */
+#ifdef STM32F10X_HD_VL
+"ADC1_IRQn",
+"EXTI9_5_IRQn",
+"TIM1_BRK_TIM15_IRQn",
+"TIM1_UP_TIM16_IRQn",
+"TIM1_TRG_COM_TIM17_IRQn",
+"TIM1_CC_IRQn",
+"TIM2_IRQn",
+"TIM3_IRQn",
+"TIM4_IRQn",
+"I2C1_EV_IRQn",
+"I2C1_ER_IRQn",
+"I2C2_EV_IRQn",
+"I2C2_ER_IRQn",
+"SPI1_IRQn",
+"SPI2_IRQn",
+"USART1_IRQn",
+"USART2_IRQn",
+"USART3_IRQn",
+"EXTI15_10_IRQn",
+"RTCAlarm_IRQn",
+"CEC_IRQn",
+"TIM12_IRQn",
+"TIM13_IRQn",
+"TIM14_IRQn",
+"TIM5_IRQn",
+"SPI3_IRQn",
+"UART4_IRQn",
+"UART5_IRQn",
+"TIM6_DAC_IRQn",
+"TIM7_IRQn",
+"DMA2_Channel1_IRQn",
+"DMA2_Channel2_IRQn",
+"DMA2_Channel3_IRQn",
+"DMA2_Channel4_5_IRQn",
+"DMA2_Channel5_IRQn",
+#endif /* STM32F10X_HD_VL */
+#ifdef STM32F10X_XL
+"ADC1_2_IRQn",
+"USB_HP_CAN1_TX_IRQn",
+"USB_LP_CAN1_RX0_IRQn",
+"CAN1_RX1_IRQn",
+"CAN1_SCE_IRQn",
+"EXTI9_5_IRQn",
+"TIM1_BRK_TIM9_IRQn",
+"TIM1_UP_TIM10_IRQn",
+"TIM1_TRG_COM_TIM11_IRQn",
+"TIM1_CC_IRQn",
+"TIM2_IRQn",
+"TIM3_IRQn",
+"TIM4_IRQn",
+"I2C1_EV_IRQn",
+"I2C1_ER_IRQn",
+"I2C2_EV_IRQn",
+"I2C2_ER_IRQn",
+"SPI1_IRQn",
+"SPI2_IRQn",
+"USART1_IRQn",
+"USART2_IRQn",
+"USART3_IRQn",
+"EXTI15_10_IRQn",
+"RTCAlarm_IRQn",
+"USBWakeUp_IRQn",
+"TIM8_BRK_TIM12_IRQn",
+"TIM8_UP_TIM13_IRQn",
+"TIM8_TRG_COM_TIM14_IRQn",
+"TIM8_CC_IRQn",
+"ADC3_IRQn",
+"FSMC_IRQn",
+"SDIO_IRQn",
+"TIM5_IRQn",
+"SPI3_IRQn",
+"UART4_IRQn",
+"UART5_IRQn",
+"TIM6_IRQn",
+"TIM7_IRQn",
+"DMA2_Channel1_IRQn",
+"DMA2_Channel2_IRQn",
+"DMA2_Channel3_IRQn",
+"DMA2_Channel4_5_IRQn",
+#endif /* STM32F10X_XL */
+#ifdef STM32F10X_CL
+"ADC1_2_IRQn",
+"CAN1_TX_IRQn",
+"CAN1_RX0_IRQn",
+"CAN1_RX1_IRQn",
+"CAN1_SCE_IRQn",
+"EXTI9_5_IRQn",
+"TIM1_BRK_IRQn",
+"TIM1_UP_IRQn",
+"TIM1_TRG_COM_IRQn",
+"TIM1_CC_IRQn",
+"TIM2_IRQn",
+"TIM3_IRQn",
+"TIM4_IRQn",
+"I2C1_EV_IRQn",
+"I2C1_ER_IRQn",
+"I2C2_EV_IRQn",
+"I2C2_ER_IRQn",
+"SPI1_IRQn",
+"SPI2_IRQn",
+"USART1_IRQn",
+"USART2_IRQn",
+"USART3_IRQn",
+"EXTI15_10_IRQn",
+"RTCAlarm_IRQn",
+"OTG_FS_WKUP_IRQn",
+"TIM5_IRQn",
+"SPI3_IRQn",
+"UART4_IRQn",
+"UART5_IRQn",
+"TIM6_IRQn",
+"TIM7_IRQn",
+"DMA2_Channel1_IRQn",
+"DMA2_Channel2_IRQn",
+"DMA2_Channel3_IRQn",
+"DMA2_Channel4_IRQn",
+"DMA2_Channel5_IRQn",
+"ETH_IRQn",
+"ETH_WKUP_IRQn",
+"CAN2_TX_IRQn",
+"CAN2_RX0_IRQn",
+"CAN2_RX1_IRQn",
+"CAN2_SCE_IRQn",
+"OTG_FS_IRQn",
+#endif /* STM32F10X_CL */
+};
+#endif // PROC_STM32F1
+
+#ifdef PROC_STM32F4
 
 static const char* const TRACE_IRQ_NAMES[] = {
   "SVCall_IRQn",                 /*-5*/
@@ -322,58 +604,51 @@ static const char* const TRACE_IRQ_NAMES[] = {
   "SPI6_IRQn",                   /*86*/
 #endif /* STM32F427X */
 };
-#else
+#endif // PROC_STM32F4
+#else // ARCH_STM32
 #error "undefined arch for trace"
-#define TRACE_IRQ_NAMES \
-{ "<>", \
-  "UART1",        "UART2",        "UART3",        "UART4", \
-  "TIM2",         "DMA_SPI1_RX",  "DMA_SPI1_TX",  "DMA_SPI2_RX", \
-  "DMA_SPI2_RX",  "EXTI_ETH_SPI", "EXTI_DBG",     "PENDSV", \
-  "SYSTICK",      "I2C_ER",       "I2C_EV",       "USB_WKU", \
-  "USB_LP", \
-}
-
-#endif
-#else
+#endif // ARCH_STM32
+#else // DBG_TRACE_MON
 #define TRACE_LOG(op, var)
 #define TRACE_LOG_MS(op, var)
 #define TRACE_SET(x)    (void)(x)
 #define TRACE_START(x)  FALSE
 #define TRACE_STOP(x)   FALSE
-#endif
+#endif // DBG_TRACE_MON
 
 typedef enum {
   _BAD = 0,
   _TRC_OP_MS_TICK = 1,
-  _TRC_OP_IRQ_ENTER,
-  _TRC_OP_IRQ_EXIT,
-  _TRC_OP_IRQ_ON,
-  _TRC_OP_IRQ_OFF,
-  _TRC_OP_OS_CTX_LEAVE,
-  _TRC_OP_OS_CTX_ENTER,
-  _TRC_OP_OS_CREATE,
-  _TRC_OP_OS_YIELD,
-  _TRC_OP_OS_THRSLEEP,
-  _TRC_OP_OS_DEAD,
-  _TRC_OP_OS_MUTLOCK,
-  _TRC_OP_OS_MUTACQ_LOCK,
-  _TRC_OP_OS_MUTWAIT_LOCK,
-  _TRC_OP_OS_MUTUNLOCK,
-  _TRC_OP_OS_CONDWAIT,
-  _TRC_OP_OS_CONDTIMWAIT,
-  _TRC_OP_OS_CONDSIG,
-  _TRC_OP_OS_SIGWAKED,
-  _TRC_OP_OS_CONDBROAD,
-  _TRC_OP_OS_CONDTIMWAKED,
-  _TRC_OP_OS_THRWAKED,
-  _TRC_OP_OS_SLEEP,
+  _TRC_OP_IRQ_ENTER, _TRC_OP_IRQ_EXIT,
+  _TRC_OP_IRQ_ON, _TRC_OP_IRQ_OFF,
+  _TRC_OP_OS_CTX_LEAVE, _TRC_OP_OS_CTX_ENTER,
+  _TRC_OP_OS_CREATE, _TRC_OP_OS_YIELD, _TRC_OP_OS_THRSLEEP, _TRC_OP_OS_DEAD,
+  _TRC_OP_OS_MUTLOCK, _TRC_OP_OS_MUTACQ_LOCK, _TRC_OP_OS_MUTWAIT_LOCK, _TRC_OP_OS_MUTUNLOCK,
+  _TRC_OP_OS_CONDWAIT, _TRC_OP_OS_CONDTIMWAIT, _TRC_OP_OS_CONDSIG, _TRC_OP_OS_SIGWAKED, _TRC_OP_OS_CONDBROAD, _TRC_OP_OS_CONDTIMWAKED,
+  _TRC_OP_OS_THRWAKED, _TRC_OP_OS_SLEEP,
   _TRC_OP_OS_PREEMPTION,
-  _TRC_OP_TASK_RUN,
-  _TRC_OP_TASK_ENTER,
-  _TRC_OP_TASK_EXIT,
-  _TRC_OP_TASK_TIMER,
+  _TRC_OP_TASK_RUN, _TRC_OP_TASK_ENTER, _TRC_OP_TASK_EXIT, _TRC_OP_TASK_TIMER,
   _TRC_OP_USER_MSG,
 } _trc_types ;
+
+#ifdef DBG_TRACE_MON
+
+static const char* const TRACE_NAMES[] = {
+  "<>",
+  "ms_tick",
+  "irq_enter","irq_exit ",
+  "irq_on", "irq_off",
+  "ctx_leave", "ctx_enter",
+  "thr_create", "thr_yield", "thr_sleep", "thr_dead",
+  "mutex_lock", "mutex_acquire", "mutex_wait", "mutex_unlock",
+  "cond_wait", "cond_tim_wait", "cond_signal", "cond_sig_waked", "cond_broadcast", "cond_tim_waked",
+  "thr_wakeup", "os_sleep",
+  "preemption",
+  "task_run", "task_enter", "task_exit ", "task_timer",
+  "user_msg"
+};
+
+#endif // DBG_TRACE_MON
 
 #define TRACE_MS_TICK(ms)           TRACE_LOG_MS(_TRC_OP_MS_TICK, ms)
 
@@ -414,7 +689,7 @@ typedef enum {
 #define TRACE_TASK_TIMER(x)         TRACE_LOG(_TRC_OP_TASK_TIMER, x)
 
 
-#define TRACE_USR_MSG(m)         TRACE_LOG(_TRC_OP_USER_MSG, m)
+#define TRACE_USR_MSG(m)            TRACE_LOG(_TRC_OP_USER_MSG, m)
 
 /** OS **/
 
