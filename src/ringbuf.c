@@ -49,7 +49,7 @@ int ringbuf_putc(ringbuf *rb, u8_t c) {
   if (RB_FULL(rix, wix)) {
     return RB_ERR_FULL;
   }
-  rb->buffer[rix] = c;
+  rb->buffer[wix] = c;
   if (wix >= rb->max_len-1) {
     wix = 0;
   } else {
@@ -64,6 +64,15 @@ int ringbuf_available(ringbuf *rb) {
   u16_t rix = rb->r_ix;
   u16_t wix = rb->w_ix;
   return RB_AVAIL(rix, wix);
+}
+
+int ringbuf_clear(ringbuf *rb) {
+  u16_t rix = rb->r_ix;
+  u16_t wix = rb->w_ix;
+  u16_t avail = RB_AVAIL(rix, wix);
+  rb->r_ix = 0;
+  rb->w_ix = 0;
+  return avail;
 }
 
 int ringbuf_available_linear(ringbuf *rb, u8_t **ptr) {

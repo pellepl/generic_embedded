@@ -75,8 +75,23 @@ s32_t usb_serial_rx_buf(u8_t *buf, u16_t len) {
   return ringbuf_get(&rx_rb, buf, len);
 }
 
+void usb_serial_tx_drain(void) {
+  ringbuf_clear(&usb_vcd_ringbuf_tx);
+}
 
 #define BLOCKING_TX_TRIES   10
+
+void usb_serial_tx_flush(void) {
+  u32_t spoon_guard = 100;
+  int avail = 1;
+  while (!within_critical() && avail > 0 && --spoon_guard) {
+    avail = ringbuf_available(&usb_vcd_ringbuf_tx);
+    SYS_hardsleep_ms(10);
+  }
+
+  ringbuf_clear(&usb_vcd_ringbuf_tx);
+}
+
 
 s32_t usb_serial_tx_char(u8_t c) {
   s32_t res;

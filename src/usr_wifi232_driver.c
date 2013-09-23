@@ -10,8 +10,6 @@
 #include "io.h"
 #include "taskq.h"
 
-// TODO TIMER
-
 #define WIFI_BUF_SIZE 512
 
 typedef enum {
@@ -27,6 +25,7 @@ typedef enum {
 
 static struct {
   volatile bool config;
+  u8_t enter_tries;
   volatile bool busy;
   wifi_cfg_state state;
   wifi_cfg_cmd cmd;
@@ -36,16 +35,26 @@ static struct {
   u32_t out_wix;
   char out[WIFI_BUF_SIZE];
   u8_t cfg_cmd_linenbr;
+  task_timer timeout_timer;
+  task *timeout_task;
 } wsta;
 
 
-static void wifi_enter_config(void) {
+static void wifi_enter_config_tx() {
+  IO_put_buf(IOWIFI, (u8_t*)"+++", 3);
+  TASK_stop_timer(&wsta.timeout_timer);
+  TASK_start_timer(wsta.timeout_task,
+      &wsta.timeout_timer, 0, NULL,
+      300, 0, "wifi_tmo");
+  wsta.enter_tries++;
+}
+
+static void wifi_enter_config() {
   DBG(D_WIFI, D_DEBUG, "WIFI: enter config mode\n");
   wsta.config = TRUE;
   wsta.state = WIFI_ENTER_PLUS;
-  IO_put_char(IOWIFI, '+');
-  IO_put_char(IOWIFI, '+');
-  IO_put_char(IOWIFI, '+');
+  wsta.enter_tries = 0;
+  wifi_enter_config_tx();
 }
 
 static void wifi_exit_config(void) {
@@ -205,6 +214,14 @@ static void wifi_cfg_on_line(char *line, u32_t strlen) {
   if (wsta.state != WIFI_COMMAND_RES) {
     DBG(D_WIFI, D_DEBUG, "WIFI: > len:%4i \"%s\"\n", strlen, line);
   }
+  if (wsta.state != WIFI_ENTER_PLUS) {
+    TASK_stop_timer(&wsta.timeout_timer);
+    TASK_start_timer(wsta.timeout_task,
+        &wsta.timeout_timer, 0, NULL,
+        3000, 0,
+        "wifi_tmo");
+  }
+
   switch (wsta.state) {
   case WIFI_ENTER_PLUS:
     if (strcmp("a", line)) {
@@ -298,6 +315,28 @@ static void wifi_io_cb(u8_t io, void *arg, u16_t len) {
   }
 }
 
+static void wifi_tmo(u32_t arg, void *argp) {
+  bool tmo = FALSE;
+  if (wsta.busy) {
+    if (wsta.state == WIFI_ENTER_PLUS) {
+      if (wsta.enter_tries >= 3) {
+        tmo = TRUE;
+      } else {
+        wifi_enter_config_tx();
+      }
+    } else {
+      tmo = TRUE;
+    }
+  }
+  if (tmo) {
+    DBG(D_WIFI, D_WARN, "WIFI: timeout\n");
+    wsta.busy = FALSE;
+    if (wsta.cb) {
+      wsta.cb(wsta.cmd, WIFI_ERR_TIMEOUT, 0, 0);
+    }
+  }
+}
+
 //////////////////////////////// api
 
 int WIFI_scan(wifi_ap *ap) {
@@ -366,6 +405,7 @@ void WIFI_reset(void) {
   GPIO_set(WIFI_GPIO_PORT, 0, WIFI_GPIO_RESET_PIN);
   SYS_hardsleep_ms(400);
   GPIO_set(WIFI_GPIO_PORT, WIFI_GPIO_RESET_PIN, 0);
+  wsta.busy = FALSE;
 }
 
 void WIFI_factory_reset(void) {
@@ -386,10 +426,12 @@ void WIFI_state(void) {
 //////////////////////////////// init
 
 void WIFI_init(wifi_cb cb) {
+  GPIO_set(WIFI_GPIO_PORT, WIFI_GPIO_RESET_PIN, 0);
+  GPIO_set(WIFI_GPIO_PORT, WIFI_GPIO_RELOAD_PIN, 0);
+
   UART_config(_UART(WIFI_UART), 0,0,0,0,0, FALSE);
 
   IO_assure_tx(IOWIFI, TRUE);
-  IO_set_callback(IOWIFI, wifi_io_cb, 0);
 
   memset(&wsta, 0, sizeof(wsta));
   wsta.cb = cb;
@@ -397,6 +439,9 @@ void WIFI_init(wifi_cb cb) {
   UART_config(_UART(WIFI_UART), WIFI_UART_BAUD, UART_DATABITS_8, UART_STOPBITS_1,
       UART_PARITY_NONE, UART_FLOWCONTROL_NONE, TRUE);
 
+  IO_set_callback(IOWIFI, wifi_io_cb, 0);
+
+  wsta.timeout_task = TASK_create(wifi_tmo, TASK_STATIC);
 }
 /*
 AT+WMODE

@@ -30,14 +30,14 @@ typedef struct {
   void* hw;
   struct {
     u8_t buf[UART_RX_BUFFER];
-    u16_t wix;
-    u16_t rix;
+    volatile u16_t wix;
+    volatile u16_t rix;
   } rx;
 #if !UART_SYNC_TX
   struct {
     u8_t buf[UART_TX_BUFFER];
     volatile u16_t wix;
-    u16_t rix;
+    volatile u16_t rix;
   } tx;
 #endif
   uart_rx_callback rx_f;

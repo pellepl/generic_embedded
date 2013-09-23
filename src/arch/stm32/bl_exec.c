@@ -30,7 +30,7 @@ static void _bootloader_setup_context() {
 
 static void _bootloader_setup_periph() {
 #ifdef CONFIG_SPI
-  print("  .. spi flash\n");
+  ioprint(IODBG, "  .. spi flash\n");
   GPIO_enable(SPI_FLASH_GPIO_PORT, SPI_FLASH_GPIO_PIN);
 
   SPI_config(_SPI_BUS(FLASH_SPI_BUS), FLASH_SPI_CONFIG);
@@ -44,16 +44,16 @@ static void _bootloader_setup_periph() {
 }
 
 __attribute__ (( noreturn )) void bootloader_execute() {
-  print("Configuring peripherals for bootloader\n");
+  ioprint(IODBG, "Configuring peripherals for bootloader\n");
   _bootloader_setup_periph();
-  print("Bootloader initialization from kernel\n");
-  print("Text section: %08x -> %08x, size %i bytes\n",
+  ioprint(IODBG, "Bootloader initialization from kernel\n");
+  ioprint(IODBG, "Text section: %08x -> %08x, size %i bytes\n",
       BOOTLOADER_TEXT_LMA_START, BOOTLOADER_TEXT_VMA_START, (BOOTLOADER_TEXT_VMA_END - BOOTLOADER_TEXT_VMA_START));
-  print("Data section: %08x -> %08x, size %i bytes\n",
+  ioprint(IODBG, "Data section: %08x -> %08x, size %i bytes\n",
       BOOTLOADER_DATA_LMA_START, BOOTLOADER_DATA_VMA_START, (BOOTLOADER_DATA_VMA_END - BOOTLOADER_DATA_VMA_START));
-  print("SP will be set to %08x\n", STACK_END);
-  print("Will jump to %08x after copy\n", bootloader_init);
-  print("Kernel releasing command to bootloader in ram, bye... \n\n");
+  ioprint(IODBG, "SP will be set to %08x\n", STACK_END);
+  ioprint(IODBG, "Will jump to %08x after copy\n", bootloader_init);
+  ioprint(IODBG, "Kernel releasing command to bootloader in ram, bye... \n\n");
   _bootloader_setup_context();
   while(1);
 }

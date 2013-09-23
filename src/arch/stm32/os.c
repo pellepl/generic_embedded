@@ -2,6 +2,7 @@
 #include "miniutils.h"
 #include "list.h"
 #include "linker_symaccess.h"
+#include "os_hal.h"
 
 #define OS_THREAD_FLAG_ALIVE        (1<<0)
 #define OS_THREAD_FLAG_SLEEP        (1<<1)
@@ -18,8 +19,6 @@
 
 #define _STACK_USAGE_MARK (0xea)
 #define _STACK_USAGE_MARK_32 ((_STACK_USAGE_MARK << 24) | (_STACK_USAGE_MARK << 16) | (_STACK_USAGE_MARK << 8) | _STACK_USAGE_MARK)
-
-#define PENDING_CTX_SWITCH SCB->ICSR |= SCB_ICSR_PENDSVSET
 
 typedef struct {
   u32_t r0;
@@ -130,7 +129,7 @@ void __os_svc_handler(u32_t *args) {
   if (svc_nbr == 1) {
 // TODO
 //    if (arg0 == OS_SVC_YIELD) {
-      PENDING_CTX_SWITCH;
+      OS_HAL_PENDING_CTX_SWITCH;
       return;
 //    }
   }
@@ -140,7 +139,7 @@ void __os_svc_handler(u32_t *args) {
 // Called from SysTick_Handler in stm32f103x_it.c
 void __os_systick(void) {
   // assert pendsv
-  PENDING_CTX_SWITCH;
+  OS_HAL_PENDING_CTX_SWITCH;
 }
 
 // Called from PendSV_Handler in stm32f103x_it.c
@@ -186,7 +185,7 @@ __attribute__((naked)) void __os_pendsv(void)  {
       "__no_enter_context:\n"
       "ldr     r2, __os\n"
       "ldr     r1, [r2, %1]\n"  // r1 = os.main_msp
-      "str     r0, [r2, %1]\n"  // os.current_flags = 0
+      "str     r0, [r2, %0]\n"  // os.current_flags = 0
       "msr     msp, r1\n"       // msp = r1
       "pop     {r4-r11}\n"
       "mvn     lr, #6\n" // __MAIN_RETURN, kernel
@@ -348,7 +347,7 @@ void __os_time_tick(time now) {
     __os_sleepers_update(&os.q_sleep, now);
     __os_update_first_awake();
     if (!os.preemption) {
-      PENDING_CTX_SWITCH;
+      OS_HAL_PENDING_CTX_SWITCH;
     }
     __os_update_preemption();
   }
@@ -376,7 +375,7 @@ static inline void __os_disable_preemption(void) {
     TRACE_OS_PREEMPTION(0);
   }
   os.preemption = FALSE;
-  SysTick->CTRL &= ~SysTick_CTRL_ENABLE_Msk;
+  OS_HAL_DISABLE_PREEMPTION;
 }
 
 // enable systick
@@ -385,7 +384,7 @@ static inline void __os_enable_preemption(void) {
     TRACE_OS_PREEMPTION(1);
   }
   os.preemption = TRUE;
-  SysTick->CTRL |= SysTick_CTRL_ENABLE_Msk;
+  OS_HAL_ENABLE_PREEMPTION;
 }
 
 static bool OS_enter_critical() {
@@ -827,7 +826,7 @@ u32_t OS_cond_signal(os_cond *c) {
   __os_update_preemption();
   exit_critical();
   if (!os.preemption) {
-    PENDING_CTX_SWITCH;
+    OS_HAL_PENDING_CTX_SWITCH;
   }
 
   return 0;
@@ -872,7 +871,7 @@ u32_t OS_cond_broadcast(os_cond *c) {
   __os_update_preemption();
   exit_critical();
   if (!os.preemption) {
-    PENDING_CTX_SWITCH;
+    OS_HAL_PENDING_CTX_SWITCH;
   }
   return 0;
 }
@@ -915,10 +914,7 @@ void OS_init(void) {
   list_init(&os.q_sleep);
   os.first_awake = OS_FOREVER;
 
-  SysTick->LOAD  = (ticks & SysTick_LOAD_RELOAD_Msk) - 1; // set reload reg
-  SysTick->VAL   = 0;
-  SysTick->CTRL  = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk;
-  SysTick_CLKSourceConfig(SysTick_CLKSource_HCLK_Div8);
+  OS_HAL_CONFIG_PREEMPTION_TICK(ticks);
 }
 
 #if OS_DBG_MON
@@ -938,8 +934,8 @@ bool OS_DBG_print_thread(u8_t io, os_thread *t, bool detail, int indent) {
       t->sp);
 #if OS_STACK_CHECK
   ioprint(io, " [%s]  ", (t->sp < t->stack_start || t->sp > t->stack_end) ? TEXT_BAD("BPTR") :" ok ");
-  bool sp_start_bad = t->stack_start < RAM_BEGIN || t->stack_start > RAM_END;
-  bool sp_end_bad = t->stack_end < t->stack_start || t->stack_end > RAM_END;
+  bool sp_start_bad = OS_DBG_BADR(t->stack_start);
+  bool sp_end_bad = t->stack_end < t->stack_start || OS_DBG_BADR(t->stack_end);
   ioprint(io, "  sp_start:%08x [%s]  sp_end:%08x [%s]",
       t->stack_start,
       sp_start_bad ? TEXT_BAD("BADR") : (*(u32_t*)(t->stack_start - 4) != OS_STACK_START_MARKER ? TEXT_BAD("CRPT") : " ok "),

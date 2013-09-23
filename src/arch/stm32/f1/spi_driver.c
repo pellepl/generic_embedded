@@ -27,8 +27,8 @@ spi_bus __spi_bus_vec[SPI_MAX_ID];
 // Finalizes hw blocks of a spi operation
 static void SPI_finalize(spi_bus *s) {
 #ifndef CONFIG_SPI_POLL
-  DMA_Cmd(s->dma_tx_channel, DISABLE);
-  DMA_Cmd(s->dma_rx_channel, DISABLE);
+  DMA_Cmd(s->dma_tx_stream, DISABLE);
+  DMA_Cmd(s->dma_rx_stream, DISABLE);
 #endif
   SPI_Cmd(s->hw, DISABLE);
 }
@@ -101,8 +101,8 @@ static void SPI_begin(spi_bus *s, u16_t tx_len, u8_t *tx, u16_t rx_len, u8_t *rx
 
   // .. here be dragons...
   // seems to be a compiler thing - adding compile breaks
-  DMA_Cmd(s->dma_rx_channel, DISABLE);
-  DMA_Cmd(s->dma_tx_channel, DISABLE);
+  DMA_Cmd(s->dma_rx_stream, DISABLE);
+  DMA_Cmd(s->dma_tx_stream, DISABLE);
 
   __NOP();
 
@@ -110,13 +110,13 @@ static void SPI_begin(spi_bus *s, u16_t tx_len, u8_t *tx, u16_t rx_len, u8_t *rx
   if (tx_len == 0) {
     // only receiving, so send ff's to clock in data
     s->dummy = 0xff;
-    s->dma_tx_channel->CCR &= ~DMA_MemoryInc_Enable;
-    s->dma_tx_channel->CNDTR = rx_len;
-    s->dma_tx_channel->CMAR = (u32_t)&s->dummy;
+    s->dma_tx_stream->CCR &= ~DMA_MemoryInc_Enable;
+    s->dma_tx_stream->CNDTR = rx_len;
+    s->dma_tx_stream->CMAR = (u32_t)&s->dummy;
   } else {
-    s->dma_tx_channel->CCR |= DMA_MemoryInc_Enable;
-    s->dma_tx_channel->CNDTR = tx_len;
-    s->dma_tx_channel->CMAR = (u32_t)(tx == 0 ? s->buf : tx);
+    s->dma_tx_stream->CCR |= DMA_MemoryInc_Enable;
+    s->dma_tx_stream->CNDTR = tx_len;
+    s->dma_tx_stream->CMAR = (u32_t)(tx == 0 ? s->buf : tx);
   }
 
   __NOP();
@@ -127,13 +127,13 @@ static void SPI_begin(spi_bus *s, u16_t tx_len, u8_t *tx, u16_t rx_len, u8_t *rx
   // set up rx channel
   if (rx_len == 0) {
     // only sending, but receive ignored data to get irq when all is rxed
-    s->dma_rx_channel->CCR &= ~DMA_MemoryInc_Enable;
-    s->dma_rx_channel->CNDTR = tx_len;
-    s->dma_rx_channel->CMAR = (u32_t)&s->dummy;
+    s->dma_rx_stream->CCR &= ~DMA_MemoryInc_Enable;
+    s->dma_rx_stream->CNDTR = tx_len;
+    s->dma_rx_stream->CMAR = (u32_t)&s->dummy;
   } else {
-    s->dma_rx_channel->CCR |= DMA_MemoryInc_Enable;
-    s->dma_rx_channel->CNDTR = rx_len;
-    s->dma_rx_channel->CMAR = (u32_t)(rx == 0 ? s->buf : rx);
+    s->dma_rx_stream->CCR |= DMA_MemoryInc_Enable;
+    s->dma_rx_stream->CNDTR = rx_len;
+    s->dma_rx_stream->CMAR = (u32_t)(rx == 0 ? s->buf : rx);
   }
 
   __NOP();
@@ -141,8 +141,8 @@ static void SPI_begin(spi_bus *s, u16_t tx_len, u8_t *tx, u16_t rx_len, u8_t *rx
   //print("SPI DMA rx addr:%08x len:%i inc:%s\n", s->dma_rx_channel->CMAR, s->dma_rx_channel->CNDTR,
   //    (s->dma_rx_channel->CCR & DMA_MemoryInc_Enable) ? "ON" : "OFF");
 
-  DMA_Cmd(s->dma_rx_channel, ENABLE);
-  DMA_Cmd(s->dma_tx_channel, ENABLE);
+  DMA_Cmd(s->dma_rx_stream, ENABLE);
+  DMA_Cmd(s->dma_tx_stream, ENABLE);
   SPI_Cmd(s->hw, ENABLE);
 
 #endif // CONFIG_SPI_POLL
@@ -160,6 +160,27 @@ int SPI_close(spi_bus *s) {
   return SPI_OK;
 }
 
+static u16_t SPI_bitrate_to_proc_setting(u32_t bitrate, u32_t clock) {
+  u32_t cand_bitrate = clock;
+  // lowest prescaler is div by 2
+  cand_bitrate >>= 1;
+  u16_t prescaler = 1;
+  while (prescaler < 8 && cand_bitrate > bitrate) {
+    prescaler++;
+    cand_bitrate >>= 1;
+  }
+  switch (prescaler) {
+  case 1: return SPI_BaudRatePrescaler_2;
+  case 2: return SPI_BaudRatePrescaler_4;
+  case 3: return SPI_BaudRatePrescaler_8;
+  case 4: return SPI_BaudRatePrescaler_16;
+  case 5: return SPI_BaudRatePrescaler_32;
+  case 6: return SPI_BaudRatePrescaler_64;
+  case 7: return SPI_BaudRatePrescaler_128;
+  default: return SPI_BaudRatePrescaler_256;
+  }
+}
+
 int SPI_config(spi_bus *s, u16_t config) {
   SPI_InitTypeDef SPI_InitStructure;
   (void)SPI_close(s);
@@ -174,27 +195,28 @@ int SPI_config(spi_bus *s, u16_t config) {
   SPI_InitStructure.SPI_FirstBit =
       (config & SPIDEV_CONFIG_FBIT_MASK) == SPIDEV_CONFIG_FBIT_MSB ? SPI_FirstBit_MSB : SPI_FirstBit_LSB;
   SPI_InitStructure.SPI_NSS = SPI_NSS_Soft;
+  u32_t clock = SystemCoreClock/2; // SPI clocked on APBm running core clock / 2
   switch (config & SPIDEV_CONFIG_SPEED_MASK) {
-  case SPIDEV_CONFIG_SPEED_36M:
+  case SPIDEV_CONFIG_SPEED_HIGHEST:
     SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_2;
     break;
   case SPIDEV_CONFIG_SPEED_18M:
-    SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_4;
+    SPI_InitStructure.SPI_BaudRatePrescaler = SPI_bitrate_to_proc_setting(18000000, clock);
     break;
   case SPIDEV_CONFIG_SPEED_9M:
-    SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_8;
+    SPI_InitStructure.SPI_BaudRatePrescaler = SPI_bitrate_to_proc_setting(9000000, clock);
     break;
   case SPIDEV_CONFIG_SPEED_4_5M:
-    SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_16;
+    SPI_InitStructure.SPI_BaudRatePrescaler = SPI_bitrate_to_proc_setting(4500000, clock);
     break;
   case SPIDEV_CONFIG_SPEED_2_3M:
-    SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_32;
+    SPI_InitStructure.SPI_BaudRatePrescaler = SPI_bitrate_to_proc_setting(2250000, clock);
     break;
   case SPIDEV_CONFIG_SPEED_1_1M:
-    SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_64;
+    SPI_InitStructure.SPI_BaudRatePrescaler = SPI_bitrate_to_proc_setting(1125000, clock);
     break;
   case SPIDEV_CONFIG_SPEED_562_5K:
-    SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_128;
+    SPI_InitStructure.SPI_BaudRatePrescaler = SPI_bitrate_to_proc_setting(562500, clock);
     break;
   case SPIDEV_CONFIG_SPEED_SLOWEST:
     SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_256;
@@ -272,9 +294,8 @@ void SPI_init() {
   _SPI_BUS(0)->dma_tx_irq = DMA1_IT_TC3;
   _SPI_BUS(0)->dma_rx_err_irq = DMA1_IT_TE2;
   _SPI_BUS(0)->dma_tx_err_irq = DMA1_IT_TE3;
-  _SPI_BUS(0)->dma_rx_channel = SPI1_MASTER_Rx_DMA_Channel;
-  _SPI_BUS(0)->dma_tx_channel = SPI1_MASTER_Tx_DMA_Channel;
-  _SPI_BUS(0)->nvic_irq = SPI1_MASTER_Rx_IRQ_Channel;
+  _SPI_BUS(0)->dma_rx_stream = SPI1_MASTER_Rx_DMA_Channel;
+  _SPI_BUS(0)->dma_tx_stream = SPI1_MASTER_Tx_DMA_Channel;
 #endif
 #if SPI_MAX_ID >= 2
   _SPI_BUS(1)->max_buf_len = SPI_BUFFER;
@@ -283,9 +304,8 @@ void SPI_init() {
   _SPI_BUS(1)->dma_tx_irq = DMA1_IT_TC5;
   _SPI_BUS(1)->dma_rx_err_irq = DMA1_IT_TE4;
   _SPI_BUS(1)->dma_tx_err_irq = DMA1_IT_TE5;
-  _SPI_BUS(1)->dma_rx_channel = SPI2_MASTER_Rx_DMA_Channel;
-  _SPI_BUS(1)->dma_tx_channel = SPI2_MASTER_Tx_DMA_Channel;
-  _SPI_BUS(1)->nvic_irq = SPI2_MASTER_Rx_IRQ_Channel;
+  _SPI_BUS(1)->dma_rx_stream = SPI2_MASTER_Rx_DMA_Channel;
+  _SPI_BUS(1)->dma_tx_stream = SPI2_MASTER_Tx_DMA_Channel;
 #endif
 }
 
@@ -315,26 +335,6 @@ void SPI_disable_irq(spi_bus *spi) {
 }
 
 void SPI_irq(spi_bus *s) {
-#if 0
-  DBG(D_SPI, D_FATAL, "SPI DMA IRQ\n");
-  if (DMA_GetITStatus(DMA1_IT_TE2))
-  {
-    DBG(D_SPI, D_FATAL, "SPI DMA IRQ IT TE2\n");
-    DMA_ClearITPendingBit(s->dma_tx_irq);
-  }
-  if (DMA_GetITStatus(DMA1_IT_TE3))
-  {
-    DBG(D_SPI, D_FATAL, "SPI DMA IRQ IT TE3\n");
-    DMA_ClearITPendingBit(s->dma_tx_irq);
-  }
-
-  if (DMA_GetITStatus(s->dma_tx_irq))
-  {
-    DBG(D_SPI, D_FATAL, "SPI DMA IRQ IT TC3 TX\n");
-    DMA_ClearITPendingBit(s->dma_tx_irq);
-  }
-#endif
-
   if (DMA_GetITStatus(s->dma_rx_err_irq)) {
     // RX
     DMA_ClearITPendingBit(s->dma_rx_err_irq);

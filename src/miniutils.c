@@ -151,21 +151,21 @@ void print(const char* f, ...) {
   va_end(arg_p);
 }
 
-void printbuf(u8_t *buf, u16_t len) {
+void printbuf(u8_t io, u8_t *buf, u16_t len) {
   int i = 0, ix = 0;
   while (i < len) {
     for (i = ix; i < MIN(ix+32, len); i++) {
-      print("%02x ", buf[i]);
+      ioprint(io, "%02x", buf[i]);
     }
     while (i++ < ix+32) {
-      print("   ");
+      ioprint(io, "   ");
     }
-    print ("  ");
+    ioprint (io, "  ");
     for (i = ix; i < MIN(ix+32, len); i++) {
-      print("%c", buf[i] < 32 ? '.' : buf[i]);
+      ioprint(io, "%c", buf[i] < 32 ? '.' : buf[i]);
     }
     ix += 32;
-    print("\n");
+    ioprint(io, "\n");
   }
 }
 

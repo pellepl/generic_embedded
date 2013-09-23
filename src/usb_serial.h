@@ -18,6 +18,8 @@ s32_t usb_serial_tx_buf(u8_t *buf, u16_t len);
 s32_t usb_serial_rx_char(u8_t *c);
 s32_t usb_serial_rx_buf(u8_t *buf, u16_t len);
 u16_t usb_serial_rx_avail(void);
+void usb_serial_tx_drain(void);
+void usb_serial_tx_flush(void);
 void usb_serial_set_rx_callback(usb_serial_rx_cb cb, void *arg);
 void usb_serial_get_rx_callback(usb_serial_rx_cb *cb, void **arg);
 bool usb_serial_assure_tx(bool on);

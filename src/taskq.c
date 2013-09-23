@@ -205,7 +205,8 @@ void TASK_run(task* task, u32_t arg, void* arg_p) {
   task->_next = 0;
   task->run_requests++;
   TRACE_TASK_RUN(task->_ix);
-#ifdef CONFIG_OS
+//#if defined(CONFIG_OS) & defined(CONFIG_TASK_QUEUE_IN_THREAD)
+#if defined(CONFIG_OS)
   OS_cond_signal(&task_sys.cond);
 #endif
   exit_critical();
@@ -270,7 +271,7 @@ u8_t TASK_is_running(task* t) {
 
 void TASK_wait() {
   while (task_sys.head == 0) {
-#ifdef CONFIG_OS
+#if defined(CONFIG_OS) & defined(CONFIG_TASK_QUEUE_IN_THREAD)
     OS_cond_wait(&task_sys.cond, NULL);
 #else
     arch_sleep();

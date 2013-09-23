@@ -28,7 +28,7 @@
 #define SPIDEV_CONFIG_CPHA_1E       (0<<1)
 #define SPIDEV_CONFIG_FBIT_LSB      (1<<2)
 #define SPIDEV_CONFIG_FBIT_MSB      (0<<2)
-#define SPIDEV_CONFIG_SPEED_36M     ((0x0)<<3)
+#define SPIDEV_CONFIG_SPEED_HIGHEST ((0x0)<<3)
 #define SPIDEV_CONFIG_SPEED_18M     ((0x1)<<3)
 #define SPIDEV_CONFIG_SPEED_9M      ((0x2)<<3)
 #define SPIDEV_CONFIG_SPEED_4_5M    ((0x3)<<3)

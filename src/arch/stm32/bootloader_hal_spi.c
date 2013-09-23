@@ -2,10 +2,22 @@
 #include "bootloader.h"
 #include "linker_symaccess.h"
 
+#ifndef CONFIG_SPI_TIMEOUT
+#define CONFIG_SPI_TIMEOUT 0x10000
+#endif
+
 BOOTLOADER_TEXT static u8_t b_spi_txrx(u8_t c) {
-  while ((((SPI_TypeDef *)(__boot.media_hw))->SR & SPI_I2S_FLAG_TXE )== 0);
+  u32_t spoon_guard = CONFIG_SPI_TIMEOUT;
+  while (((((SPI_TypeDef *)(__boot.media_hw))->SR & SPI_I2S_FLAG_TXE )== 0) && (--spoon_guard > 0));
+  if (spoon_guard == 0) {
+    return 0;
+  }
+  spoon_guard = CONFIG_SPI_TIMEOUT;
   ((SPI_TypeDef *)(__boot.media_hw))->DR = c;
-  while ((((SPI_TypeDef *)(__boot.media_hw))->SR & SPI_I2S_FLAG_RXNE )== 0);
+  while (((((SPI_TypeDef *)(__boot.media_hw))->SR & SPI_I2S_FLAG_RXNE )== 0) && (--spoon_guard > 0));
+  if (spoon_guard == 0) {
+    return 0;
+  }
   return ((SPI_TypeDef *)(__boot.media_hw))->DR;
 }
 

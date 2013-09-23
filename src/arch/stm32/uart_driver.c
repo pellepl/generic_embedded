@@ -100,16 +100,21 @@ void UART_tx_drain(uart *uart) {
 #endif
 }
 
-void UART_tx_flush(uart *uart) {
-  while (uart->tx.rix != uart->tx.wix) {
-    u8_t c = uart->tx.buf[uart->tx.rix];
-    UART_tx_force_char(uart, c);
-    if (uart->tx.rix >= UART_RX_BUFFER - 1) {
-      uart->tx.rix = 0;
+void UART_tx_flush(uart *u) {
+  UART_RX_IRQ_OFF(u);
+  u16_t rix = u->tx.rix;
+  u16_t wix = u->tx.wix;
+  while (rix != wix) {
+    u8_t c = u->tx.buf[rix];
+    UART_tx_force_char(u, c);
+    if (rix >= UART_RX_BUFFER - 1) {
+      rix = 0;
     } else {
-      uart->tx.rix++;
+      rix++;
     }
   }
+  u->tx.rix = rix;
+  UART_RX_IRQ_ON(u);
 }
 
 s32_t UART_get_char(uart *u) {

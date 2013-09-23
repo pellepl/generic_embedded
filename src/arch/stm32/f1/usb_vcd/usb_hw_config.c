@@ -148,6 +148,7 @@ s32_t usb_serial_tx_buf(u8_t *buf, u16_t len) {
 void usb_serial_set_rx_callback(usb_serial_rx_cb cb, void *arg) {
   // TODO
 }
+
 void usb_serial_get_rx_callback(usb_serial_rx_cb *cb, void **arg) {
   // TODO
 }
@@ -156,3 +157,12 @@ bool usb_serial_assure_tx(bool on) {
   // TODO
   return FALSE;
 }
+
+void usb_serial_tx_drain(void) {
+  ringbuf_clear(&tx_rb);
+}
+
+void usb_serial_tx_flush(void) {
+  // TODO
+}
+

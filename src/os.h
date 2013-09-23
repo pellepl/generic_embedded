@@ -73,6 +73,11 @@ typedef struct os_cond_t {
 #define OS_MUTEX_ATTR_CRITICAL_IRQ     (1<<0)
 #define OS_MUTEX_ATTR_REENTRANT        (1<<1)
 
+#ifndef OS_DBG_BADR
+#define OS_DBG_BADR(x) \
+    ((x) < RAM_BEGIN || (x) > RAM_END)
+#endif
+
 u32_t OS_thread_create(os_thread *t, u32_t flags, void *(*func)(void *), void *arg, void *stack, u32_t stack_size, const char *name);
 u32_t OS_thread_id(os_thread *t);
 os_thread *OS_thread_self();

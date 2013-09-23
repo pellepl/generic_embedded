@@ -24,17 +24,23 @@ typedef struct spi_bus_s {
 #ifdef ARCH_STM32
   SPI_TypeDef *hw;
 #if defined(PROC_STM32F1)
-  DMA_Channel_TypeDef *dma_rx_channel;
-  DMA_Channel_TypeDef *dma_tx_channel;
-#elif defined(PROC_STM32F4)
-  DMA_Stream_TypeDef *dma_rx_channel;
-  DMA_Stream_TypeDef *dma_tx_channel;
-#endif
+  DMA_Channel_TypeDef *dma_rx_stream;
+  DMA_Channel_TypeDef *dma_tx_stream;
   u32_t dma_rx_irq;
   u32_t dma_tx_irq;
   u32_t dma_rx_err_irq;
   u32_t dma_tx_err_irq;
-  u8_t nvic_irq;
+#elif defined(PROC_STM32F4)
+  DMA_Stream_TypeDef *dma_rx_stream;
+  DMA_Stream_TypeDef *dma_tx_stream;
+  u32_t dma_channel;
+  u32_t dma_rx_irq;
+  u32_t dma_tx_irq;
+  u32_t dma_rx_err_dm_irq;
+  u32_t dma_tx_err_dm_irq;
+  u32_t dma_rx_err_tr_irq;
+  u32_t dma_tx_err_tr_irq;
+#endif
 #endif
   u8_t attached_devices;
   volatile bool busy;
@@ -94,15 +100,6 @@ int SPI_config(spi_bus *s, u16_t config);
  * Returns if bus is busy or not
  */
 bool SPI_is_busy(spi_bus *spi);
-
-/**
- * Enable spi bus irq
- */
-void SPI_enable_irq(spi_bus *spi);
-/**
- * Disable spi bus irq
- */
-void SPI_disable_irq(spi_bus *spi);
 
 /**
  * Register a user of the spi bus

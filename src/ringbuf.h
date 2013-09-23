@@ -49,5 +49,7 @@ int ringbuf_available(ringbuf *rb);
    null argument for buf.
  */
 int ringbuf_available_linear(ringbuf *rb, u8_t **ptr);
+/*  Empties ringbuffer  */
+int ringbuf_clear(ringbuf *rb);
 
 #endif /* RINGBUF_H_ */

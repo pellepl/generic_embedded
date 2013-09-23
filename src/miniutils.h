@@ -53,7 +53,7 @@ void vprint(const char* f, va_list arg_p);
 // format prints to specified io with specified va_list
 void vioprint(int io, const char* f, va_list arg_p);
 // prints a neatly formatted data / ascii table of given buffer
-void printbuf(u8_t *buf, u16_t len);
+void printbuf(u8_t io, u8_t *buf, u16_t len);
 // transforms v to an ascii string in given base
 void itoa(int v, char* dst, int base);
 // transforms v to an ascii string in given base at maximum length
