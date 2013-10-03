@@ -258,7 +258,7 @@ void I2C_IRQ_ev(i2c_bus *bus) {
     // EV8_2
     // tx reg transmitted, became empty
   case I2C_EVENT_MASTER_BYTE_TRANSMITTED :
-    if (bus->state != I2C_S_IDLE) {
+    if (bus->state == I2C_S_TX) { // must check for tx here, at low speeds there might come spurios tx events
       I2C_HW_DEBUG(D_I2C, D_DEBUG, "i2c_ev:   master byte txed\n");
       if (bus->len == 0) {
         if (bus->gen_stop) {

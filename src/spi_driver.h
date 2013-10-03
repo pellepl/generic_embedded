@@ -54,7 +54,11 @@ typedef struct spi_bus_s {
   volatile u32_t user_arg;
 } spi_bus;
 
+#ifndef CONFIG_SPI_CNT
 #define SPI_MAX_ID   2
+#else
+#define SPI_MAX_ID   CONFIG_SPI_CNT
+#endif
 
 extern spi_bus __spi_bus_vec[SPI_MAX_ID];
 

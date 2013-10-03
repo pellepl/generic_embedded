@@ -46,6 +46,30 @@ typedef struct  {
   u16_t rx_len;
 } __attribute__(( packed )) spi_dev_sequence;
 
+#define SPI_DEV_SEQ_TX(seq, buf, len) \
+  (seq).cs_release = FALSE; \
+  (seq).tx = (buf); \
+  (seq).tx_len = (len); \
+  (seq).rx_len = 0;
+
+#define SPI_DEV_SEQ_RX(seq, buf, len) \
+  (seq).cs_release = FALSE; \
+  (seq).rx = (buf); \
+  (seq).rx_len = (len); \
+  (seq).tx_len = 0;
+
+#define SPI_DEV_SEQ_TX_STOP(seq, buf, len) \
+  (seq).cs_release = TRUE; \
+  (seq).tx = (buf); \
+  (seq).tx_len = (len); \
+  (seq).rx_len = 0;
+
+#define SPI_DEV_SEQ_RX_STOP(seq, buf, len) \
+  (seq).cs_release = TRUE; \
+  (seq).rx = (buf); \
+  (seq).rx_len = (len); \
+  (seq).tx_len = 0;
+
 /*
  * SPI device
  */
