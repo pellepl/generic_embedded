@@ -11,6 +11,8 @@
 extern u32_t RAM_START;
 extern u32_t RAM_SIZE;
 
+extern u32_t FLASH_SIZE;
+
 extern u32_t __shared_memory_address__;
 extern u32_t __Shared_Memory_Size;
 extern u32_t __stack_start__;
@@ -26,6 +28,9 @@ extern u32_t _bootloader_data_vma_end;
 
 #define RAM_BEGIN             ((void *)&RAM_START)
 #define RAM_END               ((void *)((u32_t)&RAM_START + (u32_t)&RAM_SIZE))
+
+#define FLASH_BEGIN           ((void *)FLASH_START)
+#define FLASH_END             ((void *)((u32_t)FLASH_START + (u32_t)&FLASH_SIZE))
 
 #define SHARED_MEMORY_ADDRESS ((void *)&__shared_memory_address__)
 #define SHARED_MEMORY_SIZE    ((void *)&_Shared_Memory_Size)

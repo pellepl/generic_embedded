@@ -23,6 +23,15 @@ typedef enum {
   WIFI_EXIT2,
 } wifi_cfg_state;
 
+#define WIFI_CONFIG_START   WIFI_CONFIG_MODE
+#define WIFI_CONFIG_MODE    0
+#define WIFI_CONFIG_SSID    1
+#define WIFI_CONFIG_ENCR    2
+#define WIFI_CONFIG_WAN     3
+#define WIFI_CONFIG_GATEWAY 4
+#define WIFI_CONFIG_CTRL    5
+#define WIFI_CONFIG_END     255
+
 static struct {
   volatile bool config;
   u8_t enter_tries;
@@ -31,12 +40,14 @@ static struct {
   wifi_cfg_cmd cmd;
   void *data;
   wifi_cb cb;
+  wifi_data_cb dcb;
   u32_t out_rix;
   u32_t out_wix;
   char out[WIFI_BUF_SIZE];
   u8_t cfg_cmd_linenbr;
   task_timer timeout_timer;
   task *timeout_task;
+  u8_t sub_state;
 } wsta;
 
 
@@ -72,15 +83,77 @@ static void wifi_do_command(void) {
     DBG(D_WIFI, D_DEBUG, "WIFI: < at+wscan\n");
     IO_put_buf(IOWIFI, (u8_t*)"at+wscan\n", 9);
     break;
+
   case WIFI_GET_WAN:
     DBG(D_WIFI, D_DEBUG, "WIFI: < at+wann\n");
     IO_put_buf(IOWIFI, (u8_t*)"at+wann\n", 8);
     break;
+
   case WIFI_GET_SSID:
     DBG(D_WIFI, D_DEBUG, "WIFI: < at+wsssid\n");
     IO_put_buf(IOWIFI, (u8_t*)"at+wsssid\n", 10);
     break;
-  }
+
+  case WIFI_SET_CONFIG: {
+    wifi_config *c = (wifi_config *)wsta.data;
+    switch (wsta.sub_state) {
+    case WIFI_CONFIG_MODE:
+      //AT+WMODE
+      //+ok=STA
+      DBG(D_WIFI, D_DEBUG, "WIFI: < at+wmode=STA\n");
+      ioprint(IOWIFI, "at+wmode=STA\n");
+      break;
+    case WIFI_CONFIG_SSID:
+      //AT+WSSSID
+      //+ok=springfield
+      DBG(D_WIFI, D_DEBUG, "WIFI: < at+wsssid=x\n");
+      ioprint(IOWIFI, "at+wsssid=%s\n", c->ssid);
+      break;
+    case WIFI_CONFIG_ENCR:
+      DBG(D_WIFI, D_DEBUG, "WIFI: < at+wskey=x,y,z\n");
+      //AT+WSKEY
+      //+ok=WPA2PSK,AES,<*******>
+      ioprint(IOWIFI, "at+wskey=%s,%s\n",
+          (u8_t*)c->encryption,
+          (u8_t*)c->password);
+      break;
+    case WIFI_CONFIG_WAN:
+      //AT+WANN
+      //+ok=STATIC,192.168.0.124,255.255.255.0,192.168.0.1
+      //+ok=DHCP,0.0.0.0,255.255.255.0,192.168.0.1
+      DBG(D_WIFI, D_DEBUG, "WIFI: < at+wann=x,y,z,w\n");
+      ioprint(IOWIFI, "at+wann=%s,%i.%i.%i.%i,%i.%i.%i.%i,%i.%i.%i.%i\n",
+          c->wan.method == WIFI_WAN_STATIC ? "STATIC":"DHCP",
+          c->wan.ip[0], c->wan.ip[1], c->wan.ip[2], c->wan.ip[3],
+          c->wan.netmask[0], c->wan.netmask[1], c->wan.netmask[2], c->wan.netmask[3],
+          c->wan.gateway[0], c->wan.gateway[1], c->wan.gateway[2], c->wan.gateway[3]);
+      break;
+    case WIFI_CONFIG_GATEWAY:
+      //AT+LANGW
+      //+ok=192.168.0.1
+      DBG(D_WIFI, D_DEBUG, "WIFI: < at+langw=x\n");
+      ioprint(IOWIFI, "at+langw=%i.%i.%i.%i\n",
+          c->gateway[0], c->gateway[1], c->gateway[2], c->gateway[3]);
+      break;
+    case WIFI_CONFIG_CTRL:
+      //AT+NETP
+      //+ok=UDP,Client,51966,192.168.0.204
+      DBG(D_WIFI, D_DEBUG, "WIFI: < at+netp=x,y,z\n");
+      ioprint(IOWIFI, "at+netp=%s,%s,%i,%i.%i.%i.%i\n",
+          c->protocol == WIFI_COMM_PROTO_TCP ? "TCP" : "UDP",
+          c->type == WIFI_TYPE_SERVER ? "Server":"Client",
+          c->port,
+          c->server[0], c->server[1], c->server[2], c->server[3]);
+      break;
+    default:
+      //AT+Z
+      DBG(D_WIFI, D_DEBUG, "WIFI: < at+z\n");
+      ioprint(IOWIFI, "at+z\n");
+      break;
+    } // substate
+    } // case set_config
+    break;
+  } // cmd
 }
 
 static bool wifi_read_netwaddr(u8_t nwaddr[4], cursor *c, strarg *arg) {
@@ -111,7 +184,10 @@ static void wifi_on_cmd_res(char *line, u32_t strlen, u8_t linenbr) {
     return;
   }
 
-  if (strlen == 0 && wsta.cmd != WIFI_SCAN) {
+  if (strlen == 0 &&
+      (wsta.cmd != WIFI_SCAN &&
+       wsta.cmd != WIFI_SET_CONFIG)
+      ) {
     wifi_exit_config();
     return;
   }
@@ -207,6 +283,12 @@ static void wifi_on_cmd_res(char *line, u32_t strlen, u8_t linenbr) {
 
     break;
   }
+
+  case WIFI_SET_CONFIG: {
+    wsta.sub_state++;
+    wsta.state = WIFI_ENTER_A;
+    break;
+  }
   }
 }
 
@@ -238,6 +320,12 @@ static void wifi_cfg_on_line(char *line, u32_t strlen) {
   case WIFI_ECHO_COMMAND:
     wsta.cfg_cmd_linenbr = 0;
     wsta.state = WIFI_COMMAND_RES;
+    if (strlen >= 4 && strncmp("AT+Z", line, 4) == 0) {
+      DBG(D_WIFI, D_INFO, "WIFI: sw reset\n");
+      wsta.cb(wsta.cmd, WIFI_SW_RESET, 0, 0);
+      WIFI_reset(FALSE);
+      return;
+    }
     break;
   case WIFI_COMMAND_RES:
     wifi_on_cmd_res(line, strlen, wsta.cfg_cmd_linenbr);
@@ -302,16 +390,18 @@ static void wifi_io_parse(u8_t c) {
   }
 }
 
+
+// called via uart, len will always be 1
 static void wifi_io_cb(u8_t io, void *arg, u16_t len) {
   if (wsta.config) {
-    u8_t buf[256];
+    u8_t buf[8];
     u16_t ix;
     IO_get_buf(io, buf, len);
     for (ix = 0; ix < len; ix++) {
       wifi_io_parse(buf[ix]);
     }
   } else {
-    // TODO data
+    if (wsta.dcb) wsta.dcb(io, len);
   }
 }
 
@@ -387,6 +477,23 @@ int WIFI_get_ssid(char *ssid) {
   return WIFI_OK;
 }
 
+int WIFI_set_config(wifi_config *config) {
+  if (!WIFI_is_ready()) {
+    return WIFI_ERR_NOT_READY;
+  }
+  if (wsta.busy) {
+    return WIFI_ERR_BUSY;
+  }
+  wsta.busy = TRUE;
+  wsta.data = config;
+  wsta.cmd = WIFI_SET_CONFIG;
+  wsta.sub_state = WIFI_CONFIG_START;
+
+  wifi_enter_config();
+
+  return WIFI_OK;
+}
+
 
 //////////////////////////////// HW
 
@@ -401,11 +508,21 @@ bool WIFI_is_link(void) {
   return link;
 }
 
-void WIFI_reset(void) {
-  GPIO_set(WIFI_GPIO_PORT, 0, WIFI_GPIO_RESET_PIN);
-  SYS_hardsleep_ms(400);
-  GPIO_set(WIFI_GPIO_PORT, WIFI_GPIO_RESET_PIN, 0);
+void WIFI_reset(bool hw) {
+  TASK_stop_timer(&wsta.timeout_timer);
+  if (hw) {
+    GPIO_set(WIFI_GPIO_PORT, 0, WIFI_GPIO_RESET_PIN);
+    SYS_hardsleep_ms(400);
+    GPIO_set(WIFI_GPIO_PORT, WIFI_GPIO_RESET_PIN, 0);
+  }
   wsta.busy = FALSE;
+  wsta.cfg_cmd_linenbr = 0;
+  wsta.config = FALSE;
+  wsta.enter_tries = 0;
+  wsta.out_rix = 0;
+  wsta.out_wix = 0;
+  wsta.state = 0;
+  wsta.sub_state = 0;
 }
 
 void WIFI_factory_reset(void) {
@@ -425,7 +542,7 @@ void WIFI_state(void) {
 
 //////////////////////////////// init
 
-void WIFI_init(wifi_cb cb) {
+void WIFI_init(wifi_cb cb, wifi_data_cb dcb) {
   GPIO_set(WIFI_GPIO_PORT, WIFI_GPIO_RESET_PIN, 0);
   GPIO_set(WIFI_GPIO_PORT, WIFI_GPIO_RELOAD_PIN, 0);
 
@@ -435,6 +552,7 @@ void WIFI_init(wifi_cb cb) {
 
   memset(&wsta, 0, sizeof(wsta));
   wsta.cb = cb;
+  wsta.dcb = dcb;
 
   UART_config(_UART(WIFI_UART), WIFI_UART_BAUD, UART_DATABITS_8, UART_STOPBITS_1,
       UART_PARITY_NONE, UART_FLOWCONTROL_NONE, TRUE);
@@ -443,25 +561,3 @@ void WIFI_init(wifi_cb cb) {
 
   wsta.timeout_task = TASK_create(wifi_tmo, TASK_STATIC);
 }
-/*
-AT+WMODE
-+ok=STA
-
-AT+WSKEY
-+ok=WPA2PSK,AES,<*******>
-
-AT+WSSSID
-+ok=springfield
-
-AT+WANN
-+ok=STATIC,192.168.0.124,255.255.255.0,192.168.0.1
-+ok=DHCP,0.0.0.0,255.255.255.0,192.168.0.1
-
-AT+LANGW
-+ok=192.168.0.1
-
-AT+NETP
-+ok=UDP,Client,51966,192.168.0.204
-
- *
- */

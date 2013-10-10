@@ -205,8 +205,19 @@ void TASK_run(task* task, u32_t arg, void* arg_p) {
   task->_next = 0;
   task->run_requests++;
   TRACE_TASK_RUN(task->_ix);
-//#if defined(CONFIG_OS) & defined(CONFIG_TASK_QUEUE_IN_THREAD)
-#if defined(CONFIG_OS)
+#if defined(CONFIG_OS) & defined(CONFIG_TASK_QUEUE_IN_THREAD)
+  //#if defined(CONFIG_OS)
+  // TODO PETER FIX
+  // for some reason we sporadically crash when doing OS_cond_sig
+  // whilst firing off tasks in IRQs which occur very frequently
+  // (eg dumping pics from ADNS3000s) - only when task queue is not in
+  // a thread. Fix is to put task queue in a thread or not signalling
+  // the condition, but need to sort out why this happens.
+  //
+  // hardfault:
+  //  INVPC: UsaFlt general
+  //  FORCED: HardFlt SVC/BKPT within SVC
+
   OS_cond_signal(&task_sys.cond);
 #endif
   exit_critical();

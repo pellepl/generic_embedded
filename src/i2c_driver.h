@@ -25,13 +25,13 @@ typedef enum {
 } i2c_state;
 
 typedef enum {
-  I2C_ERR_PHY_SMBUS_ALERT = 0,
-  I2C_ERR_PHY_TIMEOUT,
-  I2C_ERR_PHY_ARBITRATION_LOST,
-  I2C_ERR_PHY_PEC_ERR,
-  I2C_ERR_PHY_OVER_UNDERRUN,
-  I2C_ERR_PHY_ACK_FAIL,
-  I2C_ERR_PHY_BUS_ERR
+  I2C_ERR_PHY_SMBUS_ALERT = 0,      // 1
+  I2C_ERR_PHY_TIMEOUT,              // 2
+  I2C_ERR_PHY_ARBITRATION_LOST,     // 4
+ I2C_ERR_PHY_PEC_ERR,               // 8
+  I2C_ERR_PHY_OVER_UNDERRUN,        // 16
+  I2C_ERR_PHY_ACK_FAIL,             // 32
+  I2C_ERR_PHY_BUS_ERR               // 64
 } i2c_phy_err;
 
 /*

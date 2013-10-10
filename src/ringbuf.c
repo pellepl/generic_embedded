@@ -7,6 +7,8 @@
 
 #include "ringbuf.h"
 #include "miniutils.h"
+#include "linker_symaccess.h"
+
 #define RB_AVAIL(rix, wix) \
   (wix >= rix ? (wix - rix) : (rb->max_len - (rix - wix)))
 #define RB_FREE(rix, wix) \
@@ -113,12 +115,14 @@ int ringbuf_put(ringbuf *rb, u8_t *buf, u16_t len) {
   to_write = len;
   if (wix + len >= rb->max_len) {
     u16_t part = rb->max_len - wix;
+    ASSERT(VALID_DATA(buf));
     memcpy(&rb->buffer[wix], buf, part);
     buf +=part;
     to_write -= part;
     wix = 0;
   }
   if (to_write > 0) {
+    ASSERT(VALID_DATA(buf));
     memcpy(&rb->buffer[wix], buf, to_write);
     wix += to_write;
   }
@@ -134,6 +138,7 @@ int ringbuf_get(ringbuf *rb, u8_t *buf, u16_t len) {
   u16_t rix = rb->r_ix;
   u16_t wix = rb->w_ix;
   int to_read;
+
   if (RB_EMPTY(rix, wix)) {
     return RB_ERR_EMPTY;
   }
@@ -145,6 +150,7 @@ int ringbuf_get(ringbuf *rb, u8_t *buf, u16_t len) {
   if (rix + len >= rb->max_len) {
     u16_t part = rb->max_len - rix;
     if (buf) {
+      ASSERT(VALID_RAM(buf));
       memcpy(buf, &rb->buffer[rix], part);
       buf += part;
     }
@@ -153,6 +159,7 @@ int ringbuf_get(ringbuf *rb, u8_t *buf, u16_t len) {
   }
   if (to_read > 0) {
     if (buf) {
+      ASSERT(VALID_RAM(buf));
       memcpy(buf, &rb->buffer[rix], to_read);
     }
      rix += to_read;
