@@ -42,6 +42,7 @@ do { \
   "fs", \
   "i2c", \
   "wifi", \
+  "web", \
 }
 
 #ifdef DBG_SYS_OFF
@@ -109,6 +110,11 @@ do { \
 #else
 #define D_WIFI    (1<<12)
 #endif
+#ifdef DBG_WEB_OFF
+#define D_WEB   0
+#else
+#define D_WEB     (1<<13)
+#endif
 #ifdef DBG_ANY_OFF
 #define D_ANY     0
 #else
@@ -131,6 +137,7 @@ do { \
 #define D_I2C     0
 #define D_WIFI    0
 #define D_ANY     0
+#define D_WEB     0
 
 #endif  // DBG_OFF
 

@@ -324,6 +324,16 @@ int strcmp(const char* s1, const char* s2) {
   return c1 - c2;
 }
 
+int strcmpbegin(const char* prefix, const char* s) {
+  char c1, c2;
+  while (((c1 = *prefix++) != 0) & ((c2 = *s++) != 0)) {
+    if (c1 != c2) {
+      return -1;
+    }
+  }
+  return c1 == 0 ? 0 : c1 - c2;
+}
+
 int strncmp(const char* s1, const char* s2, int len) {
   while (len > 0 && *s1++ == *s2++) {
     len--;

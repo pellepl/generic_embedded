@@ -70,6 +70,8 @@ int strnlen(const char *c, int size);
 int strcmp(const char* s1, const char* s2);
 // compares two strings up to given number of characters, returns 0 if equal
 int strncmp(const char* s1, const char* s2, int len);
+// compares beginning of string s with prefix, returns 0 if match
+int strcmpbegin(const char* prefix, const char* s);
 // copies a string of given length or less to destination
 char* strncpy(char* d, const char* s, int num);
 // copies a string to destination
