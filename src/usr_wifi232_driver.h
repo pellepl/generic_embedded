@@ -9,6 +9,7 @@
 #define USR_WIFI232_DRIVER_H_
 
 #include "system.h"
+#include "ringbuf.h"
 
 #define WIFI_OK             0
 #define WIFI_ERR_NOT_READY  -1
@@ -19,6 +20,13 @@
 #define WIFI_SW_RESET       -999
 
 #define WIFI_END_OF_SCAN    1
+
+// handles data when specified character is found
+#define WIFI_DELIM_CHAR         (1<<0)
+// handles data when specified length is received
+#define WIFI_DELIM_LENGTH       (1<<1)
+// handles data when timeout occured
+#define WIFI_DELIM_TIME         (1<<2)
 
 typedef enum {
   WIFI_SCAN = 0,
@@ -74,9 +82,15 @@ typedef struct {
 
 typedef void (*wifi_cb)(wifi_cfg_cmd cmd, int res, u32_t arg, void *data);
 
-typedef void (*wifi_data_cb)(u8_t io, u16_t len);
+typedef void (*wifi_data_cb)(u8_t io_out, ringbuf *rb_in);
 
-void WIFI_init(wifi_cb cb, wifi_data_cb dcb);
+typedef void (*wifi_data_timeout_cb)(u8_t io_out);
+
+void WIFI_init(wifi_cb cfg_cb, wifi_data_cb data_cb, wifi_data_timeout_cb wifi_data_tmo_cb);
+
+void WIFI_set_data_delimiter(u8_t delim_mask, u8_t delim_char, u32_t delim_len, u32_t delim_ms);
+void WIFI_set_data_silence_timeout(time timeout);
+
 // Resets wifi block. If hw is true, a hardware reset is also perfomed on module.
 void WIFI_reset(bool hw);
 // Resets wifi module to default settings.

@@ -409,7 +409,7 @@ char* strstr(const char* str1, const char* str2) {
     }
   }
   if (ix == len) {
-    return (char*)(str1 - len);
+    return (char*)(str1 - len - 1);
   } else {
     return 0;
   }

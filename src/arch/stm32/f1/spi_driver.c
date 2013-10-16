@@ -325,13 +325,13 @@ void SPI_release(spi_bus *spi) {
 }
 
 void SPI_enable_irq(spi_bus *spi) {
-  NVIC->ISER[spi->nvic_irq >> 0x05] =
-    (u32_t)0x01 << (spi->nvic_irq  & (u8_t)0x1F);
+//  NVIC->ISER[spi->nvic_irq >> 0x05] =
+//    (u32_t)0x01 << (spi->nvic_irq  & (u8_t)0x1F);
 }
 
 void SPI_disable_irq(spi_bus *spi) {
-  NVIC->ICER[spi->nvic_irq >> 0x05] =
-    (u32_t)0x01 << (spi->nvic_irq & (u8_t)0x1F);
+//  NVIC->ICER[spi->nvic_irq >> 0x05] =
+//    (u32_t)0x01 << (spi->nvic_irq & (u8_t)0x1F);
 }
 
 void SPI_irq(spi_bus *s) {
