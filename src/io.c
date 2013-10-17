@@ -49,6 +49,8 @@ bool IO_assure_tx(u8_t io, bool on) {
     return UART_assure_tx(_UART(io_bus[io].media_id), on);
   case io_usb:
     return usb_serial_assure_tx(on);
+  case io_ringbuffer:
+  case io_memory:
   case io_file:
     return FALSE;
   }
@@ -61,6 +63,8 @@ bool IO_blocking_tx(u8_t io, bool on) {
     return UART_sync_tx(_UART(io_bus[io].media_id), on);
   case io_usb:
     return usb_serial_assure_tx(on);
+  case io_ringbuffer:
+  case io_memory:
   case io_file:
     return FALSE;
   }
@@ -82,10 +86,11 @@ void IO_set_callback(u8_t io, io_rx_cb cb, void *arg) {
   case io_usb:
     usb_serial_set_rx_callback(io_usb_cb, (void*)(u32_t)io);
     break;
+  case io_ringbuffer:
+  case io_memory:
   case io_file:
     break;
   }
-
 }
 
 void IO_get_callback(u8_t io, io_rx_cb *cb, void **arg) {
@@ -104,7 +109,17 @@ s32_t IO_get_char(u8_t io) {
     return res ? res : c;
   case io_file:
     return -1;
+  case io_ringbuffer:
+    res = ringbuf_getc((ringbuf *)io_bus[io].media_id, &c);
+    return res ? res : c;
+  case io_memory: {
+    u8_t *p = (u8_t *)io_bus[io].media_id;
+    c = *p++;
+    io_bus[io].media_id = (u32_t)p;
+    return c;
   }
+  }
+
   return -1;
 }
 
@@ -116,6 +131,14 @@ s32_t IO_get_buf(u8_t io, u8_t *buf, u16_t len) {
     return usb_serial_rx_buf(buf, len);
   case io_file:
     return -1;
+  case io_ringbuffer:
+    return ringbuf_get((ringbuf *)io_bus[io].media_id, buf, len);
+  case io_memory: {
+    u8_t *p = (u8_t *)io_bus[io].media_id;
+    memcpy(buf, p, len);
+    io_bus[io].media_id = (u32_t)p + len;
+    return len;
+  }
   }
   return -1;
 }
@@ -128,6 +151,14 @@ s32_t IO_put_char(u8_t io, u8_t c) {
     return usb_serial_tx_char(c);
   case io_file:
     return -1;
+  case io_ringbuffer:
+    return ringbuf_putc((ringbuf *)io_bus[io].media_id, c);
+  case io_memory: {
+    u8_t *p = (u8_t *)io_bus[io].media_id;
+    *p++ = c;
+    io_bus[io].media_id = (u32_t)p;
+    return c;
+  }
   }
   return -1;
 }
@@ -142,6 +173,15 @@ void IO_tx_force_char(u8_t io, u8_t c) {
     break;
   case io_file:
     break;
+  case io_ringbuffer:
+    ringbuf_putc((ringbuf *)io_bus[io].media_id, c);
+    break;
+  case io_memory: {
+    u8_t *p = (u8_t *)io_bus[io].media_id;
+    *p++ = c;
+    io_bus[io].media_id = (u32_t)p;
+    break;
+  }
   }
 }
 
@@ -155,6 +195,11 @@ void IO_tx_drain(u8_t io) {
     break;
   case io_file:
     break;
+  case io_ringbuffer:
+    ringbuf_clear((ringbuf *)io_bus[io].media_id);
+    break;
+  case io_memory:
+    break;
   }
 }
 
@@ -167,6 +212,8 @@ void IO_tx_flush(u8_t io) {
     usb_serial_tx_flush();
     break;
   case io_file:
+  case io_ringbuffer:
+  case io_memory:
     break;
   }
 }
@@ -179,6 +226,14 @@ s32_t IO_put_buf(u8_t io, u8_t *buf, u16_t len) {
     return usb_serial_tx_buf(buf, len);
   case io_file:
     return -1;
+  case io_ringbuffer:
+    return ringbuf_put((ringbuf *)io_bus[io].media_id, buf, len);
+  case io_memory: {
+    u8_t *p = (u8_t *)io_bus[io].media_id;
+    memcpy(p, buf, len);
+    io_bus[io].media_id = (u32_t)p + len;
+    return len;
+  }
   }
   return -1;
 }
@@ -191,6 +246,10 @@ s32_t IO_rx_available(u8_t io) {
     return usb_serial_rx_avail();
   case io_file:
     return -1;
+  case io_ringbuffer:
+    return ringbuf_available((ringbuf *)io_bus[io].media_id);
+  case io_memory:
+    return sizeof(void *);
   }
   return -1;
 }
@@ -203,6 +262,10 @@ s32_t IO_tx_available(u8_t io) {
     return 8; // TODO PETER
   case io_file:
     return -1;
+  case io_ringbuffer:
+    return ringbuf_free((ringbuf *)io_bus[io].media_id);
+  case io_memory:
+    return sizeof(void *);
   }
   return -1;
 }

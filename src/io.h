@@ -18,6 +18,9 @@ typedef enum {
   io_uart = 0,
   io_usb,
   io_file,
+  io_memory,
+  //io_memory_dma?,
+  io_ringbuffer,
 } io_media;
 
 typedef void(*io_rx_cb)(u8_t io, void *arg, u16_t available);
