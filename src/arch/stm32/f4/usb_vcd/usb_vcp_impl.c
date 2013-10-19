@@ -45,7 +45,7 @@ static uint16_t VCP_DataRx(uint8_t* Buf, uint32_t Len);
 CDC_IF_Prop_TypeDef VCP_fops =
 { VCP_Init, VCP_DeInit, VCP_Ctrl, /*VCP_DataTx*/0, VCP_DataRx };
 
-void usb_serial_init(void) {
+void USB_SER_init(void) {
   USBD_Init(&USB_OTG_dev, USB_OTG_FS_CORE_ID, &USR_desc, &USBD_CDC_cb, &USR_cb);
   USB_OTG_dev.cfg.low_power = 0;
   rx_cb = 0;
@@ -53,35 +53,35 @@ void usb_serial_init(void) {
   ringbuf_init(&usb_vcd_ringbuf_tx, tx_data, sizeof(tx_data));
 }
 
-void usb_serial_set_rx_callback(usb_serial_rx_cb cb, void *arg) {
+void USB_SER_set_rx_callback(usb_serial_rx_cb cb, void *arg) {
   rx_cb = cb;
   rx_cb_arg = arg;
 }
 
-void usb_serial_get_rx_callback(usb_serial_rx_cb *cb, void **arg) {
+void USB_SER_get_rx_callback(usb_serial_rx_cb *cb, void **arg) {
   *cb = rx_cb;
   *arg = rx_cb_arg;
 }
 
-u16_t usb_serial_rx_avail(void) {
+u16_t USB_SER_rx_avail(void) {
   return ringbuf_available(&rx_rb);
 }
 
-s32_t usb_serial_rx_char(u8_t *c) {
+s32_t USB_SER_rx_char(u8_t *c) {
   return ringbuf_getc(&rx_rb, c);
 }
 
-s32_t usb_serial_rx_buf(u8_t *buf, u16_t len) {
+s32_t USB_SER_rx_buf(u8_t *buf, u16_t len) {
   return ringbuf_get(&rx_rb, buf, len);
 }
 
-void usb_serial_tx_drain(void) {
+void USB_SER_tx_drain(void) {
   ringbuf_clear(&usb_vcd_ringbuf_tx);
 }
 
 #define BLOCKING_TX_TRIES   10
 
-void usb_serial_tx_flush(void) {
+void USB_SER_tx_flush(void) {
   u32_t spoon_guard = 100;
   int avail = 1;
   while (!within_critical() && avail > 0 && --spoon_guard) {
@@ -93,7 +93,7 @@ void usb_serial_tx_flush(void) {
 }
 
 
-s32_t usb_serial_tx_char(u8_t c) {
+s32_t USB_SER_tx_char(u8_t c) {
   s32_t res;
   u32_t spoon_guard = BLOCKING_TX_TRIES;
   do {
@@ -110,7 +110,7 @@ s32_t usb_serial_tx_char(u8_t c) {
   return res;
 }
 
-s32_t usb_serial_tx_buf(u8_t *buf, u16_t len) {
+s32_t USB_SER_tx_buf(u8_t *buf, u16_t len) {
   s32_t res;
   s32_t sent = 0;
   u32_t spoon_guard = BLOCKING_TX_TRIES;
@@ -133,7 +133,7 @@ s32_t usb_serial_tx_buf(u8_t *buf, u16_t len) {
   return res < 0 ? res : sent;
 }
 
-bool usb_serial_assure_tx(bool on) {
+bool USB_SER_assure_tx(bool on) {
   bool old = usb_assure_tx;
   usb_assure_tx = on;
   return old;

@@ -6,7 +6,7 @@
  */
 
 #include "io.h"
-
+#include "ringbuf.h"
 
 #ifdef CONFIG_UART
 #include "uart_driver.h"
@@ -48,7 +48,7 @@ bool IO_assure_tx(u8_t io, bool on) {
   case io_uart:
     return UART_assure_tx(_UART(io_bus[io].media_id), on);
   case io_usb:
-    return usb_serial_assure_tx(on);
+    return USB_SER_assure_tx(on);
   case io_ringbuffer:
   case io_memory:
   case io_file:
@@ -62,7 +62,7 @@ bool IO_blocking_tx(u8_t io, bool on) {
   case io_uart:
     return UART_sync_tx(_UART(io_bus[io].media_id), on);
   case io_usb:
-    return usb_serial_assure_tx(on);
+    return USB_SER_assure_tx(on);
   case io_ringbuffer:
   case io_memory:
   case io_file:
@@ -84,7 +84,7 @@ void IO_set_callback(u8_t io, io_rx_cb cb, void *arg) {
     UART_set_callback(_UART(io_bus[io].media_id), cb ? io_uart_cb : (void*)NULL, (void*)(u32_t)io);
     break;
   case io_usb:
-    usb_serial_set_rx_callback(io_usb_cb, (void*)(u32_t)io);
+    USB_SER_set_rx_callback(io_usb_cb, (void*)(u32_t)io);
     break;
   case io_ringbuffer:
   case io_memory:
@@ -105,7 +105,7 @@ s32_t IO_get_char(u8_t io) {
   case io_uart:
     return UART_get_char(_UART(io_bus[io].media_id));
   case io_usb:
-    res = usb_serial_rx_char(&c);
+    res = USB_SER_rx_char(&c);
     return res ? res : c;
   case io_file:
     return -1;
@@ -128,7 +128,7 @@ s32_t IO_get_buf(u8_t io, u8_t *buf, u16_t len) {
   case io_uart:
     return UART_get_buf(_UART(io_bus[io].media_id), buf, len);
   case io_usb:
-    return usb_serial_rx_buf(buf, len);
+    return USB_SER_rx_buf(buf, len);
   case io_file:
     return -1;
   case io_ringbuffer:
@@ -148,7 +148,7 @@ s32_t IO_put_char(u8_t io, u8_t c) {
   case io_uart:
     return UART_put_char(_UART(io_bus[io].media_id), c);
   case io_usb:
-    return usb_serial_tx_char(c);
+    return USB_SER_tx_char(c);
   case io_file:
     return -1;
   case io_ringbuffer:
@@ -169,7 +169,7 @@ void IO_tx_force_char(u8_t io, u8_t c) {
     UART_tx_force_char(_UART(io_bus[io].media_id), c);
     break;
   case io_usb:
-    usb_serial_tx_char(c);
+    USB_SER_tx_char(c);
     break;
   case io_file:
     break;
@@ -191,7 +191,7 @@ void IO_tx_drain(u8_t io) {
     UART_tx_drain(_UART(io_bus[io].media_id));
     break;
   case io_usb:
-    usb_serial_tx_drain();
+    USB_SER_tx_drain();
     break;
   case io_file:
     break;
@@ -209,7 +209,7 @@ void IO_tx_flush(u8_t io) {
     UART_tx_flush(_UART(io_bus[io].media_id));
     break;
   case io_usb:
-    usb_serial_tx_flush();
+    USB_SER_tx_flush();
     break;
   case io_file:
   case io_ringbuffer:
@@ -223,7 +223,7 @@ s32_t IO_put_buf(u8_t io, u8_t *buf, u16_t len) {
   case io_uart:
     return UART_put_buf(_UART(io_bus[io].media_id), buf, len);
   case io_usb:
-    return usb_serial_tx_buf(buf, len);
+    return USB_SER_tx_buf(buf, len);
   case io_file:
     return -1;
   case io_ringbuffer:
@@ -243,7 +243,7 @@ s32_t IO_rx_available(u8_t io) {
   case io_uart:
     return UART_rx_available(_UART(io_bus[io].media_id));
   case io_usb:
-    return usb_serial_rx_avail();
+    return USB_SER_rx_avail();
   case io_file:
     return -1;
   case io_ringbuffer:

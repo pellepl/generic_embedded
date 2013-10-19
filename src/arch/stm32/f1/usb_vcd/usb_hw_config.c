@@ -119,50 +119,50 @@ static void IntToUnicode(uint32_t value, uint8_t *pbuf, uint8_t len) {
   }
 }
 
-void usb_serial_init(void) {
+void USB_SER_init(void) {
   ringbuf_init(&tx_rb, tx_buf, sizeof(tx_buf));
   ringbuf_init(&rx_rb, rx_buf, sizeof(rx_buf));
   USB_Init();
 }
 
-u16_t usb_serial_rx_avail(void) {
+u16_t USB_SER_rx_avail(void) {
   return ringbuf_available(&rx_rb);
 }
 
-s32_t usb_serial_rx_char(u8_t *c) {
+s32_t USB_SER_rx_char(u8_t *c) {
   return ringbuf_getc(&rx_rb, c);
 }
 
-s32_t usb_serial_rx_buf(u8_t *buf, u16_t len) {
+s32_t USB_SER_rx_buf(u8_t *buf, u16_t len) {
   return ringbuf_get(&rx_rb, buf, len);
 }
 
-s32_t usb_serial_tx_char(u8_t c) {
+s32_t USB_SER_tx_char(u8_t c) {
   return ringbuf_putc(&tx_rb, c);
 }
 
-s32_t usb_serial_tx_buf(u8_t *buf, u16_t len) {
+s32_t USB_SER_tx_buf(u8_t *buf, u16_t len) {
   return ringbuf_put(&tx_rb, buf, len);
 }
 
-void usb_serial_set_rx_callback(usb_serial_rx_cb cb, void *arg) {
+void USB_SER_set_rx_callback(usb_serial_rx_cb cb, void *arg) {
   // TODO
 }
 
-void usb_serial_get_rx_callback(usb_serial_rx_cb *cb, void **arg) {
+void USB_SER_get_rx_callback(usb_serial_rx_cb *cb, void **arg) {
   // TODO
 }
 
-bool usb_serial_assure_tx(bool on) {
+bool USB_SER_assure_tx(bool on) {
   // TODO
   return FALSE;
 }
 
-void usb_serial_tx_drain(void) {
+void USB_SER_tx_drain(void) {
   ringbuf_clear(&tx_rb);
 }
 
-void usb_serial_tx_flush(void) {
+void USB_SER_tx_flush(void) {
   // TODO
 }
 
