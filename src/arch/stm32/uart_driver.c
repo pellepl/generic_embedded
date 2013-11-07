@@ -33,15 +33,8 @@
 #define UART_TX_IRQ_ON(u)  UART_HW(u)->CR1 |= USART_CR1_TXEIE
 #endif
 
-#if UART_RECORD_IRQ_TYPE
-static void UART_record_irq(uart *u);
-#endif
-
 void UART_irq(uart *u) {
   if (u->hw == 0) return;
-#if UART_RECORD_IRQ_TYPE
-  UART_record_irq(u);
-#endif
 
   if ((UART_CHECK_RX(u)) && (UART_HW(u)->CR1 & USART_CR1_RXNEIE)) {
     u8_t c = USART_ReceiveData(UART_HW(u));
@@ -305,6 +298,7 @@ bool UART_config(uart *uart, u32_t baud, UART_databits databits,
     USART_ITConfig(UART_HW(uart), USART_IT_TC, DISABLE);
     USART_ITConfig(UART_HW(uart), USART_IT_TXE, DISABLE);
     USART_ITConfig(UART_HW(uart), USART_IT_RXNE, DISABLE);
+    USART_Cmd(UART_HW(uart), DISABLE);
   }
   return TRUE;
 }

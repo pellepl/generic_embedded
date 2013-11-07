@@ -81,7 +81,7 @@ const char* strchr(const char* str, int ch);
 // finds any of given characters in string and returns pointer to character found or 0
 char* strpbrk(const char* str, const char* key);
 // finds substring in string and returns pointer to substring found or 0
-char* strstr(const char* str1, const char* str2);
+char* strstr(const char* str, const char* sub);
 // calculates 16 bit crc
 unsigned short crc_ccitt_16(unsigned short crc, unsigned char data);
 // calculates pseudo random value given seed

@@ -25,7 +25,7 @@ volatile u32_t __dbg_mask = CONFIG_DEFAULT_DEBUG_MASK;
 volatile u32_t __dbg_level = D_DEBUG;
 
 #ifdef DBG_TRACE_MON
-u16_t _trace_log[TRACE_SIZE];
+u16_t _trace_log[TRACE_SIZE+32]; // add slack, index incrementor is on deep waters
 volatile u32_t _trace_log_ix = 0;
 volatile bool __trace = TRUE;
 #endif

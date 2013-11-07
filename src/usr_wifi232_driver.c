@@ -19,8 +19,7 @@ typedef enum {
   WIFI_ECHO_COMMAND,
   WIFI_COMMAND_RES,
   WIFI_EXIT,
-  WIFI_EXIT1,
-  WIFI_EXIT2,
+  WIFI_EXIT_POST_MORTEM,
 } wifi_cfg_state;
 
 #define WIFI_CONFIG_START   WIFI_CONFIG_MODE
@@ -72,6 +71,8 @@ static struct {
 
   time data_last_time;
   time data_silence_timeout;
+
+  bool idle;
 } wsta;
 
 ///////////////////////////////////////////
@@ -203,7 +204,7 @@ static bool wifi_cfg_read_netwaddr(u8_t nwaddr[4], cursor *c, strarg *arg) {
 
 // read command result from usr wifi
 static void wifi_cfg_on_cmd_res(char *line, u32_t strlen, u8_t linenbr) {
-  DBG(D_WIFI, D_DEBUG, "WIFI: cmd res line%i \"%s\"\n", linenbr, line);
+  DBG(D_WIFI, D_DEBUG, "WIFI: cmd res line %i \"%s\"\n", linenbr, line);
 
   if (strlen >= 4 && strncmp("+ERR", line, 4) == 0) {
     DBG(D_WIFI, D_WARN, "WIFI: config err %s\n", line);
@@ -361,13 +362,11 @@ static void wifi_cfg_on_line(char *line, u32_t strlen) {
     wsta.cfg_cmd_linenbr++;
     break;
   case WIFI_EXIT:
-    wsta.cfg_state = WIFI_EXIT1;
+    wsta.cfg_state = WIFI_EXIT_POST_MORTEM;
     break;
-  case WIFI_EXIT1:
-    wsta.cfg_state = WIFI_EXIT2;
-    break;
-  case WIFI_EXIT2:
+  case WIFI_EXIT_POST_MORTEM:
     wsta.busy = FALSE;
+    wsta.config = FALSE;
     wsta.cfg_state = WIFI_DATA;
     DBG(D_WIFI, D_DEBUG, "WIFI: config exited\n");
 
@@ -420,8 +419,6 @@ static void wifi_cfg_io_parse(u8_t c) {
   }
 }
 
-
-
 static void wifi_cfg_tmo(u32_t arg, void *argp) {
   bool tmo = FALSE;
   if (wsta.busy) {
@@ -438,6 +435,8 @@ static void wifi_cfg_tmo(u32_t arg, void *argp) {
   if (tmo) {
     DBG(D_WIFI, D_WARN, "WIFI: timeout\n");
     wsta.busy = FALSE;
+    wsta.config = FALSE;
+    wsta.cfg_state = WIFI_DATA;
     if (wsta.cfg_cb) {
       wsta.cfg_cb(wsta.cfg_cmd, WIFI_ERR_TIMEOUT, 0, 0);
     }
@@ -447,6 +446,7 @@ static void wifi_cfg_tmo(u32_t arg, void *argp) {
 
 // called via uart, len will always be 1
 static void wifi_io_cb(u8_t io, void *arg, u16_t len) {
+  if (wsta.idle) return;
   if (wsta.config) {
     // configuration input
     u8_t buf[8];
@@ -484,7 +484,6 @@ static void wifi_data_timer_task_f(u32_t io, void *vrb) {
 
 static void wifi_data_handle_input(u8_t io) {
   s32_t c = IO_get_char(io);
-  IO_put_char(IODBG, c);
   s32_t res = ringbuf_putc(&wsta.rx_data_rb, c);
   u32_t ringbuf_avail = ringbuf_available(&wsta.rx_data_rb);
 
@@ -708,4 +707,9 @@ void WIFI_init(wifi_cb cfg_cb, wifi_data_cb data_cb, wifi_data_timeout_cb data_t
   wsta.data_silence_timeout = 10000;
 
   ASSERT(wsta.cfg_timeout_task);
+}
+
+int WIFI_set_idle(bool idle) {
+  wsta.idle = idle;
+  return WIFI_OK;
 }

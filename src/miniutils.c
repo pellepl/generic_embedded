@@ -397,19 +397,19 @@ char* strnpbrk(const char* str, const char* key, int len) {
   return 0;
 }
 
-char* strstr(const char* str1, const char* str2) {
-  int len = strlen(str2);
+char* strstr(const char* str, const char* sub) {
+  int len = strlen(sub);
   int ix = 0;
   char c;
-  while ((c = *str1++) != 0 && ix < len) {
-    if (c == str2[ix]) {
+  while ((c = *str++) != 0 && ix < len) {
+    if (c == sub[ix]) {
       ix++;
     } else {
       ix = 0;
     }
   }
   if (ix == len) {
-    return (char*)(str1 - len - 1);
+    return (char*)(str - len - 1);
   } else {
     return 0;
   }

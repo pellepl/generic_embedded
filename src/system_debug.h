@@ -184,7 +184,7 @@ extern const char* __dbg_level_str[4];
 #ifndef TRACE_SIZE
 #error "TRACE_SIZE must be defined when DBG_TRACE_MON is enabled"
 #endif
-extern u16_t _trace_log[TRACE_SIZE];
+extern u16_t _trace_log[];
 extern volatile u32_t _trace_log_ix;
 extern volatile bool __trace;
 

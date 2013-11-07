@@ -111,5 +111,7 @@ int WIFI_get_ssid(char *c);
 // is reported in callback.
 int WIFI_set_config(wifi_config *config);
 
+int WIFI_set_idle(bool idle);
+
 
 #endif /* USR_WIFI232_DRIVER_H_ */
