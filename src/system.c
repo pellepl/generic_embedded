@@ -153,6 +153,10 @@ void SYS_hardsleep_ms(u32_t ms) {
   while (SYS_get_time_ms() < release);
 }
 
+void SYS_hardsleep_us(u32_t us) {
+  arch_busywait_us(us);
+}
+
 void SYS_dbg_mask_set(u32_t mask) {
   __dbg_mask = mask;
 }
@@ -189,7 +193,6 @@ u32_t SYS_build_date() {
 }
 
 __attribute__ (( noreturn )) void SYS_reboot(enum reboot_reason_e r) {
-  SHMEM_set_reboot_reason(r);
   arch_reset();
   while (1);
 }

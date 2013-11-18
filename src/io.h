@@ -16,7 +16,9 @@
 
 typedef enum {
   io_uart = 0,
+#ifdef CONFIG_USB_VCD
   io_usb,
+#endif
   io_file,
   io_memory,
   //io_memory_dma?,

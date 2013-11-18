@@ -102,6 +102,14 @@ FLAGS	+= -DCONFIG_RINGBUFFER
 CFILES 	+= ringbuf.c
 endif
 
+### CONFIG_GPIO - gpio driver
+
+ifeq (1, $(strip $(CONFIG_RINGBUFFER)))
+FLAGS	+= -DCONFIG_GPIO
+CFILES 	+= gpio_arch.c
+endif
+
+
 ### CONFIG_UART - uart driver
 
 ifeq (1, $(strip $(CONFIG_UART)))

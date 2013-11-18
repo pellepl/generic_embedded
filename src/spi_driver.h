@@ -54,10 +54,12 @@ typedef struct spi_bus_s {
   volatile u32_t user_arg;
 } spi_bus;
 
-#ifndef CONFIG_SPI_CNT
+#if defined(CONFIG_SPI1) && defined(CONFIG_SPI2)
 #define SPI_MAX_ID   2
+#elif defined(CONFIG_SPI1) || defined(CONFIG_SPI2)
+#define SPI_MAX_ID   1
 #else
-#define SPI_MAX_ID   CONFIG_SPI_CNT
+#define SPI_MAX_ID   0
 #endif
 
 extern spi_bus __spi_bus_vec[SPI_MAX_ID];

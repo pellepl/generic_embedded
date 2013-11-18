@@ -902,7 +902,7 @@ void OS_svc_3(void *arg, ...) {
 }
 
 void OS_init(void) {
-  const u32_t ticks = (SystemCoreClock/8) / CONFIG_OS_PREEMPT_FREQ;
+  const u32_t ticks = (SYS_CPU_FREQ/SYS_OS_TICK_DIV) / CONFIG_OS_PREEMPT_FREQ;
   memset(&os, 0, sizeof(os));
 
 #if OS_RUNTIME_VALIDITY_CHECK

@@ -47,8 +47,10 @@ bool IO_assure_tx(u8_t io, bool on) {
   switch (io_bus[io].media) {
   case io_uart:
     return UART_assure_tx(_UART(io_bus[io].media_id), on);
+#ifdef CONFIG_USB_VCD
   case io_usb:
     return USB_SER_assure_tx(on);
+#endif
   case io_ringbuffer:
   case io_memory:
   case io_file:
@@ -61,8 +63,10 @@ bool IO_blocking_tx(u8_t io, bool on) {
   switch (io_bus[io].media) {
   case io_uart:
     return UART_sync_tx(_UART(io_bus[io].media_id), on);
+#ifdef CONFIG_USB_VCD
   case io_usb:
     return USB_SER_assure_tx(on);
+#endif
   case io_ringbuffer:
   case io_memory:
   case io_file:
@@ -83,9 +87,11 @@ void IO_set_callback(u8_t io, io_rx_cb cb, void *arg) {
   case io_uart:
     UART_set_callback(_UART(io_bus[io].media_id), cb ? io_uart_cb : (void*)NULL, (void*)(u32_t)io);
     break;
+#ifdef CONFIG_USB_VCD
   case io_usb:
     USB_SER_set_rx_callback(io_usb_cb, (void*)(u32_t)io);
     break;
+#endif
   case io_ringbuffer:
   case io_memory:
   case io_file:
@@ -104,9 +110,11 @@ s32_t IO_get_char(u8_t io) {
   switch (io_bus[io].media) {
   case io_uart:
     return UART_get_char(_UART(io_bus[io].media_id));
+#ifdef CONFIG_USB_VCD
   case io_usb:
     res = USB_SER_rx_char(&c);
     return res ? res : c;
+#endif
   case io_file:
     return -1;
   case io_ringbuffer:
@@ -127,8 +135,10 @@ s32_t IO_get_buf(u8_t io, u8_t *buf, u16_t len) {
   switch (io_bus[io].media) {
   case io_uart:
     return UART_get_buf(_UART(io_bus[io].media_id), buf, len);
+#ifdef CONFIG_USB_VCD
   case io_usb:
     return USB_SER_rx_buf(buf, len);
+#endif
   case io_file:
     return -1;
   case io_ringbuffer:
@@ -147,8 +157,10 @@ s32_t IO_put_char(u8_t io, u8_t c) {
   switch (io_bus[io].media) {
   case io_uart:
     return UART_put_char(_UART(io_bus[io].media_id), c);
+#ifdef CONFIG_USB_VCD
   case io_usb:
     return USB_SER_tx_char(c);
+#endif
   case io_file:
     return -1;
   case io_ringbuffer:
@@ -168,9 +180,11 @@ void IO_tx_force_char(u8_t io, u8_t c) {
   case io_uart:
     UART_tx_force_char(_UART(io_bus[io].media_id), c);
     break;
+#ifdef CONFIG_USB_VCD
   case io_usb:
     USB_SER_tx_char(c);
     break;
+#endif
   case io_file:
     break;
   case io_ringbuffer:
@@ -190,9 +204,11 @@ void IO_tx_drain(u8_t io) {
   case io_uart:
     UART_tx_drain(_UART(io_bus[io].media_id));
     break;
+#ifdef CONFIG_USB_VCD
   case io_usb:
     USB_SER_tx_drain();
     break;
+#endif
   case io_file:
     break;
   case io_ringbuffer:
@@ -208,9 +224,11 @@ void IO_tx_flush(u8_t io) {
   case io_uart:
     UART_tx_flush(_UART(io_bus[io].media_id));
     break;
+#ifdef CONFIG_USB_VCD
   case io_usb:
     USB_SER_tx_flush();
     break;
+#endif
   case io_file:
   case io_ringbuffer:
   case io_memory:
@@ -222,8 +240,10 @@ s32_t IO_put_buf(u8_t io, u8_t *buf, u16_t len) {
   switch (io_bus[io].media) {
   case io_uart:
     return UART_put_buf(_UART(io_bus[io].media_id), buf, len);
+#ifdef CONFIG_USB_VCD
   case io_usb:
     return USB_SER_tx_buf(buf, len);
+#endif
   case io_file:
     return -1;
   case io_ringbuffer:
@@ -242,8 +262,10 @@ s32_t IO_rx_available(u8_t io) {
   switch (io_bus[io].media) {
   case io_uart:
     return UART_rx_available(_UART(io_bus[io].media_id));
+#ifdef CONFIG_USB_VCD
   case io_usb:
     return USB_SER_rx_avail();
+#endif
   case io_file:
     return -1;
   case io_ringbuffer:
@@ -258,8 +280,10 @@ s32_t IO_tx_available(u8_t io) {
   switch (io_bus[io].media) {
   case io_uart:
     return UART_tx_available(_UART(io_bus[io].media_id));
+#ifdef CONFIG_USB_VCD
   case io_usb:
     return 8; // TODO PETER
+#endif
   case io_file:
     return -1;
   case io_ringbuffer:

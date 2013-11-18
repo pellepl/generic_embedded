@@ -84,6 +84,7 @@ typedef struct spi_dev_s {
   spi_dev_sequence *seq_list;
   u8_t seq_len;
   void (*spi_dev_callback)(struct spi_dev_s *s, int result);
+  void *user_data;
 } spi_dev;
 
 typedef void (*spi_dev_callback)(spi_dev *dev, int result);
@@ -122,6 +123,14 @@ void SPI_DEV_open(spi_dev *dev);
  *            SPI_OK if all is ok
  */
 int SPI_DEV_set_callback(spi_dev *dev, spi_dev_callback cb);
+
+/**
+ * Sets user data of the spi device
+ * @param dev     The spi device to operate on
+ * @returns   SPI_ERR_DEV_BUSY if device is busy
+ *            SPI_OK if all is ok
+ */
+int SPI_DEV_set_user_data(spi_dev *dev, void *user_data);
 
 /**
  * Starts a spi device sequence operation.

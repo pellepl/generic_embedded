@@ -89,6 +89,7 @@ void SYS_set_time(u16_t d, u8_t h, u8_t m, u8_t s, u16_t ms);
 
 void SYS_assert(const char* file, int line);
 void SYS_hardsleep_ms(u32_t ms);
+void SYS_hardsleep_us(u32_t us);
 u32_t SYS_build_number();
 u32_t SYS_build_date();
 void SYS_dump_trace(u8_t io);

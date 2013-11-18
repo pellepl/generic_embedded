@@ -195,6 +195,14 @@ int SPI_DEV_set_callback(spi_dev *dev, spi_dev_callback cb) {
   return SPI_OK;
 }
 
+int SPI_DEV_set_user_data(spi_dev *dev, void *user_data) {
+  if (dev->bus->user_arg & SPI_DEV_BUS_USER_ARG_BUSY_BIT) {
+    return SPI_ERR_DEV_BUSY;
+  }
+  dev->user_data = user_data;
+  return SPI_OK;
+}
+
 int SPI_DEV_sequence(spi_dev *dev, spi_dev_sequence *seq, u8_t seq_len) {
   if (dev->bus->busy) {
     return SPI_ERR_BUS_BUSY;

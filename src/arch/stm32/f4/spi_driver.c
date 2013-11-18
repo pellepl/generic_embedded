@@ -189,7 +189,7 @@ int SPI_config(spi_bus *s, u16_t config) {
   SPI_InitStructure.SPI_FirstBit =
       (config & SPIDEV_CONFIG_FBIT_MASK) == SPIDEV_CONFIG_FBIT_MSB ? SPI_FirstBit_MSB : SPI_FirstBit_LSB;
   SPI_InitStructure.SPI_NSS = SPI_NSS_Soft;
-  u32_t clock = SystemCoreClock/2; // SPI clocked on APBm running core clock / 2
+  u32_t clock = SYS_CPU_FREQ/2; // SPI clocked on APBm running core clock / 2
   switch (config & SPIDEV_CONFIG_SPEED_MASK) {
   case SPIDEV_CONFIG_SPEED_HIGHEST:
     SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_2;
@@ -280,23 +280,24 @@ int SPI_set_callback(spi_bus *spi, void (*spi_bus_callback)(spi_bus *s, s32_t re
 void SPI_init() {
   // setup spi bus descriptor
   memset(__spi_bus_vec, 0, sizeof(__spi_bus_vec));
-
-#if SPI_MAX_ID >= 1
-  _SPI_BUS(0)->max_buf_len = SPI_BUFFER;
-  _SPI_BUS(0)->hw = SPI2;
-  _SPI_BUS(0)->dma_rx_irq = DMA_IT_TCIF3;
-  _SPI_BUS(0)->dma_tx_irq = DMA_IT_TCIF4;
-  _SPI_BUS(0)->dma_rx_err_tr_irq = DMA_IT_TEIF3;
-  _SPI_BUS(0)->dma_tx_err_tr_irq = DMA_IT_TEIF4;
-  _SPI_BUS(0)->dma_rx_err_dm_irq = DMA_IT_DMEIF3;
-  _SPI_BUS(0)->dma_tx_err_dm_irq = DMA_IT_DMEIF4;
-  _SPI_BUS(0)->dma_rx_stream = DMA1_Stream3;
-  _SPI_BUS(0)->dma_tx_stream = DMA1_Stream4;
-  _SPI_BUS(0)->dma_channel = DMA_Channel_0;
+  u8_t spi_id = 0;
+#ifdef CONFIG_SPI1
+#error todo spi1
+  spi_id++;
 #endif
-#if SPI_MAX_ID >= 2
-  // TODO PETER
-
+#ifdef CONFIG_SPI2
+  _SPI_BUS(spi_id)->max_buf_len = SPI_BUFFER;
+  _SPI_BUS(spi_id)->hw = SPI2;
+  _SPI_BUS(spi_id)->dma_rx_irq = DMA_IT_TCIF3;
+  _SPI_BUS(spi_id)->dma_tx_irq = DMA_IT_TCIF4;
+  _SPI_BUS(spi_id)->dma_rx_err_tr_irq = DMA_IT_TEIF3;
+  _SPI_BUS(spi_id)->dma_tx_err_tr_irq = DMA_IT_TEIF4;
+  _SPI_BUS(spi_id)->dma_rx_err_dm_irq = DMA_IT_DMEIF3;
+  _SPI_BUS(spi_id)->dma_tx_err_dm_irq = DMA_IT_DMEIF4;
+  _SPI_BUS(spi_id)->dma_rx_stream = DMA1_Stream3;
+  _SPI_BUS(spi_id)->dma_tx_stream = DMA1_Stream4;
+  _SPI_BUS(spi_id)->dma_channel = DMA_Channel_0;
+  spi_id++;
 #endif
 }
 
