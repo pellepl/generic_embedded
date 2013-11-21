@@ -30,7 +30,9 @@ static void SPI_finalize(spi_bus *s) {
   DMA_Cmd(s->dma_tx_stream, DISABLE);
   DMA_Cmd(s->dma_rx_stream, DISABLE);
 #endif
+#ifndef CONFIG_SPI_KEEP_RUNNING
   SPI_Cmd(s->hw, DISABLE);
+#endif
 }
 
 // IRQ: Finishes off an rx/tx operation, copies data and callbacks
@@ -58,6 +60,8 @@ static void SPI_finish(spi_bus *s, s32_t err) {
  */
 static void SPI_begin(spi_bus *s, u16_t tx_len, u8_t *tx, u16_t rx_len, u8_t *rx) {
 #ifdef CONFIG_SPI_POLL
+  SPI_Cmd(s->hw, ENABLE);
+
   u16_t tx_ix = 0;
   u16_t rx_ix = 0;
   if (rx == NULL) {
@@ -69,21 +73,25 @@ static void SPI_begin(spi_bus *s, u16_t tx_len, u8_t *tx, u16_t rx_len, u8_t *rx
   while (tx_ix < tx_len || rx_ix < rx_len) {
     bool clock_data = TRUE;
     if (tx_ix < tx_len) {
+      // is tx-char latch free?
       while (SPI_I2S_GetFlagStatus(s->hw, SPI_I2S_FLAG_TXE) == RESET);
-      //print("T%02x ", s->buf[tx_ix]);
-      SPI_I2S_SendData(s->hw, s->buf[tx_ix++]);
-      clock_data = FALSE;
+      print("T%02x ", tx[tx_ix]);
+      SPI_I2S_SendData(s->hw, tx[tx_ix++]);
+      clock_data = FALSE; // sending data, so clock is running
     }
     if (rx_ix < rx_len) {
       if (clock_data) {
+        // need to send a dummy byte to kickstart clock and shift in data
+        // is tx-char latch free?
         while (SPI_I2S_GetFlagStatus(s->hw, SPI_I2S_FLAG_TXE) == RESET);
         SPI_I2S_SendData(s->hw, 0xff);
       }
+      // is data shifted in yet?
       while (SPI_I2S_GetFlagStatus(s->hw, SPI_I2S_FLAG_RXNE) == RESET);
+      u8_t r = SPI_I2S_ReceiveData(s->hw);;
       if (rx) {
-        u8_t r = SPI_I2S_ReceiveData(s->hw);;
         rx[rx_ix++] = r;
-        //print("R%02x ", r);
+        print("R%02x ", r);
       } else {
         rx_ix++;
       }
@@ -95,6 +103,7 @@ static void SPI_begin(spi_bus *s, u16_t tx_len, u8_t *tx, u16_t rx_len, u8_t *rx
   while (SPI_I2S_GetFlagStatus(s->hw, SPI_I2S_FLAG_RXNE) == SET) {
     (void)SPI_I2S_ReceiveData(s->hw);
   }
+
   DBG(D_SPI, D_DEBUG, " -- SPI tx:%04x rx:%04x\n", tx_ix, rx_ix);
   SPI_finish(s, SPI_OK);
 #else
@@ -121,8 +130,8 @@ static void SPI_begin(spi_bus *s, u16_t tx_len, u8_t *tx, u16_t rx_len, u8_t *rx
 
   __NOP();
 
-  //print("SPI DMA tx addr:%08x len:%i inc:%s\n", s->dma_tx_channel->CMAR, s->dma_tx_channel->CNDTR,
-  //    (s->dma_tx_channel->CCR & DMA_MemoryInc_Enable) ? "ON" : "OFF");
+  //print("SPI DMA tx addr:%08x len:%i inc:%s\n", s->dma_tx_stream->CMAR, s->dma_tx_stream->CNDTR,
+  //    (s->dma_tx_stream->CCR & DMA_MemoryInc_Enable) ? "ON" : "OFF");
 
   // set up rx channel
   if (rx_len == 0) {
@@ -138,8 +147,8 @@ static void SPI_begin(spi_bus *s, u16_t tx_len, u8_t *tx, u16_t rx_len, u8_t *rx
 
   __NOP();
 
-  //print("SPI DMA rx addr:%08x len:%i inc:%s\n", s->dma_rx_channel->CMAR, s->dma_rx_channel->CNDTR,
-  //    (s->dma_rx_channel->CCR & DMA_MemoryInc_Enable) ? "ON" : "OFF");
+  //print("SPI DMA rx addr:%08x len:%i inc:%s\n", s->dma_rx_stream->CMAR, s->dma_rx_stream->CNDTR,
+  //    (s->dma_rx_stream->CCR & DMA_MemoryInc_Enable) ? "ON" : "OFF");
 
   DMA_Cmd(s->dma_rx_stream, ENABLE);
   DMA_Cmd(s->dma_tx_stream, ENABLE);
@@ -224,6 +233,10 @@ int SPI_config(spi_bus *s, u16_t config) {
   }
   SPI_InitStructure.SPI_CRCPolynomial = 7;
   SPI_Init(s->hw, &SPI_InitStructure);
+
+#ifdef CONFIG_SPI_KEEP_RUNNING
+  SPI_Cmd(s->hw, ENABLE);
+#endif
 
   return SPI_OK;
 }
@@ -318,6 +331,9 @@ bool SPI_is_busy(spi_bus *spi) {
 
 void SPI_register(spi_bus *spi) {
   spi->attached_devices++;
+#ifdef CONFIG_SPI_KEEP_RUNNING
+  SPI_Cmd(spi->hw, ENABLE);
+#endif
 }
 
 void SPI_release(spi_bus *spi) {
