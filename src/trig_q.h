@@ -11,6 +11,7 @@
 #include "system.h"
 
 #define PI_TRIG     (1<<9)
+#define PI_TRIG_T   (128*4)
 
 s32_t mul_q15(s32_t j, s32_t k);
 
@@ -37,5 +38,21 @@ s32_t cos_approx(s32_t a);
  * @returns   0..0xffff (=2*PI) Q15
  */
 u16_t atan2_approx(s32_t y, s32_t x);
+
+#ifdef CONFIG_TRIGQ_TABLE
+/**
+ * Table sinus
+ * @param a     -PI_TRIG_T..PI_TRIG_T Q10
+ * @return      -0x7fff..0x7fff Q15
+ */
+s32_t sin_table(s32_t a);
+
+/**
+ * Table cosinus
+ * @param a     -PI_TRIG_T..PI_TRIG_T Q10
+ * @return      -0x7fff..0x7fff Q15
+ */
+s32_t cos_table(s32_t a);
+#endif
 
 #endif /* TRIG_Q_H_ */

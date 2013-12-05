@@ -18,9 +18,10 @@
 memset:
 #if 0
 	push	{lr}
+	mov		r3, r0
 .loop:
-	strb	r1, [r0]
-	add		r0, r0, #0x01
+	strb	r1, [r3]
+	add		r3, r3, #0x01
 	subs	r2, r2, #0x01
 	bne		.loop
   	pop		{pc}
