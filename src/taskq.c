@@ -31,11 +31,11 @@ static struct {
 
 static u8_t _g_timer_ix = 0;
 
-static void TASK_insert_timer(task_timer *timer, time actual_time);
+static void task_insert_timer(task_timer *timer, time actual_time);
 
 static void print_task(u8_t io, task *t, const char *prefix) {
   if (t) {
-    ioprint(io, "%s ix:%02x  f:%08x  FLAGS:%s%s%s%s  arg:%08x  argp:%08x\n"
+    ioprint(io, "%s ix:%02x  f:%08x  FLAGS:%s%s%s%s%s  arg:%08x  argp:%08x\n"
         "%s        next:%08x  run_reqs:%i\n"
       ,
       prefix,
@@ -43,6 +43,7 @@ static void print_task(u8_t io, task *t, const char *prefix) {
       t->f,
       t->flags & TASK_EXE ? " E" : "/e",
       t->flags & TASK_RUN ? " R" : "/r",
+      t->flags & TASK_WAIT ? " W" : "/w",
       t->flags & TASK_LOOP ? " L" : "/l",
       t->flags & TASK_STATIC ? " S" : "/s",
       t->arg,
@@ -187,9 +188,10 @@ void TASK_loop(task* task, u32_t arg, void* arg_p) {
 }
 
 void TASK_run(task* task, u32_t arg, void* arg_p) {
-  ASSERT((task->flags & TASK_RUN) == 0);
-  ASSERT(task >= &task_pool.task[0]);
-  ASSERT(task <= &task_pool.task[_TASK_POOL]);
+  ASSERT((task->flags & TASK_RUN) == 0);       // already scheduled
+  ASSERT((task->flags & TASK_WAIT) == 0);      // waiting for a mutex
+  ASSERT(task >= &task_pool.task[0]);          // mem check
+  ASSERT(task <= &task_pool.task[_TASK_POOL]); // mem check
   task->flags |= TASK_RUN;
   task->arg = arg;
   task->arg_p = arg_p;
@@ -203,7 +205,7 @@ void TASK_run(task* task, u32_t arg, void* arg_p) {
   task_sys.last = task;
   // would same task be added twice or more, this at least fixes endless loop
   task->_next = 0;
-  task->run_requests++;
+  task->run_requests++; // if added again during execution
   TRACE_TASK_RUN(task->_ix);
 #if defined(CONFIG_OS) & defined(CONFIG_TASK_QUEUE_IN_THREAD)
   //#if defined(CONFIG_OS)
@@ -236,7 +238,7 @@ void TASK_start_timer(task *task, task_timer* timer, u32_t arg, void *arg_p, tim
   timer->recurrent_time = recurrent_time;
   timer->alive = TRUE;
   timer->name = name;
-  TASK_insert_timer(timer, SYS_get_time_ms() + start_time);
+  task_insert_timer(timer, SYS_get_time_ms() + start_time);
   task_sys.tim_lock = FALSE;
   exit_critical();
 }
@@ -292,8 +294,13 @@ void TASK_wait() {
 
 void TASK_free(task *t) {
   enter_critical();
-  task_pool.mask[t->_ix/32] |= (1<<(t->_ix & 0x1f));
-  t->flags &= ~(TASK_RUN | TASK_STATIC);
+  if ((t->flags & TASK_RUN) == 0) {
+    // not scheduled, so remove it directly to pool
+    task_pool.mask[t->_ix/32] |= (1<<(t->_ix & 0x1f));
+  }
+  // else, scheduled => will be removed in TASK_tick when executed
+
+  t->flags &= ~(TASK_RUN | TASK_STATIC | TASK_LOOP);
   exit_critical();
 }
 
@@ -312,7 +319,7 @@ u32_t TASK_tick() {
   // execute
   char do_run = t->flags & TASK_RUN;
 
-  // first, fiddle with queue
+  // first, fiddle with queue - remove task from schedq unless loop
   // reinsert or kill off
   if ((t->flags & TASK_LOOP)) {
     // loop, put this at end or simply keep if the only one
@@ -373,7 +380,87 @@ u32_t TASK_tick() {
   return 1;
 }
 
-static void TASK_insert_timer(task_timer *timer, time actual_time) {
+#ifdef CONFIG_TASKQ_MUTEX
+
+static void task_take_lock(task_mutex *m) {
+  m->taken = TRUE;
+}
+
+static void task_release_lock(task_mutex *m) {
+  m->taken = FALSE;
+}
+
+bool TASK_mutex_lock(task_mutex *m) {
+  if (!m->taken) {
+    task_take_lock(m);
+    TRACE_TASK_MUTEX_ENTER(task_sys.current->_ix);
+    return TRUE;
+  }
+  // taken, mark us still busy and insert us into mutexq
+  task *t = task_sys.current;
+  TRACE_TASK_MUTEX_WAIT(t->_ix);
+  if ((t->flags & (TASK_STATIC | TASK_LOOP)) == 0) {
+    task_pool.mask[t->_ix/32] &= ~(1<<(t->_ix & 0x1f));
+  }
+  if ((t->flags & TASK_LOOP)) {
+    // looped, remove us from end of queue
+    ASSERT(task_sys.last == t);
+    ASSERT(task_sys.head);
+    if (task_sys.head == t) {
+      // the only task in sched queue
+      task_sys.head = NULL;
+      task_sys.last = NULL;
+    } else {
+      // find the task pointing to the last task == current task
+      task *ct = task_sys.head;
+      while (ct->_next != t) {
+        ct = ct->_next;
+        ASSERT(ct);
+      }
+      // remove last task from queue
+      ct->_next = NULL;
+      task_sys.last = ct;
+    }
+  }
+
+  // insert into mutex queue
+  if (m.last == 0) {
+    m.head = t;
+  } else {
+    m.last->_next = t;
+  }
+  m.last = t;
+  t->_next = NULL;
+  t->flags &= ~TASK_RUN;
+  t->flags |= TASK_WAIT;
+
+  return FALSE;
+}
+
+bool TASK_mutex_try_lock(task_mutex *m) {
+  if (m->taken) {
+    return FALSE;
+  }
+  TRACE_TASK_MUTEX_ENTER(task_sys.current->_ix);
+  task_take_lock(m);
+  return TRUE;
+}
+
+void TASK_mutex_unlock(task_mutex *m) {
+  task_release_lock(m);
+  task *t = m->head;
+  while (t) {
+    t->flags &= ~TASK_WAIT;
+    TRACE_TASK_MUTEX_EXIT(t->_ix);
+	TASK_run(t, t->arg, t->arg_p);
+    t = t->_next;
+  }
+}
+
+#endif
+
+
+static void task_insert_timer(task_timer *timer, time actual_time) {
   timer->start_time = actual_time;
 
   if (task_sys.first_timer == 0) {
@@ -415,7 +502,7 @@ void TASK_timer() {
   task_timer *old_timer = NULL;
   while (cur_timer && cur_timer->start_time <= SYS_get_time_ms()) {
     enter_critical();
-    if (!TASK_is_running(cur_timer->task) && cur_timer->alive) {
+    if ((cur_timer->task->flags & (TASK_RUN | TASK_WAIT) == 0) && cur_timer->alive) {
       // expired, schedule for run
       TRACE_TASK_TIMER(cur_timer->_ix);
       TASK_run(cur_timer->task, cur_timer->arg, cur_timer->arg_p);
@@ -426,7 +513,7 @@ void TASK_timer() {
     if (old_timer->recurrent_time && old_timer->alive) {
       // recurrent, reinsert
       old_timer->start_time += old_timer->recurrent_time; // need to set this before inserting for sorting
-      TASK_insert_timer(old_timer, old_timer->start_time);
+      task_insert_timer(old_timer, old_timer->start_time);
     } else {
       old_timer->alive = FALSE;
     }

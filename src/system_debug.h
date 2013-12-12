@@ -635,6 +635,7 @@ typedef enum {
   _TRC_OP_OS_THRWAKED, _TRC_OP_OS_SLEEP,
   _TRC_OP_OS_PREEMPTION,
   _TRC_OP_TASK_RUN, _TRC_OP_TASK_ENTER, _TRC_OP_TASK_EXIT, _TRC_OP_TASK_TIMER,
+  _TRC_TASK_MUTEX_TAKE, _TRC_TASK_MUTEX_WAKE, _TRC_TASK_MUTEX_RELEASE,
   _TRC_OP_USER_MSG,
 } _trc_types ;
 
@@ -652,6 +653,7 @@ static const char* const TRACE_NAMES[] = {
   "thr_wakeup", "os_sleep",
   "preemption",
   "task_run", "task_enter", "task_exit ", "task_timer",
+  "task_mx_enter", "task_mx_wake", "task_mx_exit",
   "user_msg"
 };
 
@@ -695,6 +697,9 @@ static const char* const TRACE_NAMES[] = {
 #define TRACE_TASK_EXIT(x)          TRACE_LOG(_TRC_OP_TASK_EXIT, x)
 #define TRACE_TASK_TIMER(x)         TRACE_LOG(_TRC_OP_TASK_TIMER, x)
 
+#define TRACE_TASK_MUTEX_ENTER(x)   TRACE_LOG(_TRC_TASK_MUTEX_TAKE, x)
+#define TRACE_TASK_MUTEX_WAKEx)     TRACE_LOG(_TRC_TASK_MUTEX_WAKE, x)
+#define TRACE_TASK_MUTEX_EXIT(x)    TRACE_LOG(_TRC_TASK_MUTEX_RELEASE, x)
 
 #define TRACE_USR_MSG(m)            TRACE_LOG(_TRC_OP_USER_MSG, m)
 

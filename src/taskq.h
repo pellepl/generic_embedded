@@ -10,6 +10,8 @@
 
 #include "types.h"
 
+#define CONFIG_TASKQ_MUTEX	// TODO PETER REMOVE
+
 #define TASK_WARN_HIGH_EXE_TIME     40
 
 #define _TASK_POOL      64
@@ -17,6 +19,7 @@
 #define TASK_RUN        (1<<0)
 #define TASK_LOOP       (1<<1)
 #define TASK_STATIC     (1<<2)
+#define TASK_WAIT       (1<<6)
 #define TASK_EXE        (1<<7)
 
 typedef void(*task_f)(u32_t arg, void* arg_p);
@@ -42,6 +45,15 @@ typedef struct task_timer_s {
   const char *name;
   struct task_timer_s *_next;
 } task_timer;
+
+#ifdef CONFIG_TASKQ_MUTEX
+typedef struct {
+  bool taken;
+  volatile task* head;
+  volatile task* last;
+} task_mutex;
+
+#endif
 
 /**
  * Initializes the task system
@@ -108,6 +120,25 @@ void TASK_stop_timer(task_timer* timer);
  * never run.
  */
 void TASK_free(task *t);
+
+#ifdef CONFIG_TASKQ_MUTEX
+/**
+ * Tries to lock given mutex. If function returns FALSE, the task must behave well and return directly,
+ * or at least before using any resources protected by the mutex.
+ * Returns TRUE if the mutex was taken, or FALSE if the mutex was busy and we're put in waiting state.
+ */
+bool TASK_mutex_lock(task_mutex *m);
+/**
+ * Tries to lock given mutex. If function returns FALSE, the task must not use any resources protected
+ * by the mutex.
+ * Returns TRUE if the mutex was taken, or FALSE if the mutex was busy.
+ */
+bool TASK_mutex_try_lock(task_mutex *m);
+/**
+ * Unlocks given mutex and reschedules all tasks that are waiting for the mutex.
+ */
+void TASK_mutex_unlock(task_mutex *m);
+#endif
 
 u32_t TASK_tick();
 void TASK_wait();
