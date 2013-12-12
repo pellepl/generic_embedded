@@ -382,22 +382,30 @@ u32_t TASK_tick() {
 
 #ifdef CONFIG_TASKQ_MUTEX
 
-static void task_take_lock(task_mutex *m) {
+static void task_take_lock(task *t, task_mutex *m) {
   m->taken = TRUE;
+  m->owner = t;
 }
 
 static void task_release_lock(task_mutex *m) {
   m->taken = FALSE;
+  m->owner = NULL;
 }
 
 bool TASK_mutex_lock(task_mutex *m) {
+  task *t = task_sys.current;
   if (!m->taken) {
-    task_take_lock(m);
-    TRACE_TASK_MUTEX_ENTER(task_sys.current->_ix);
+    task_take_lock(t, m);
+    TRACE_TASK_MUTEX_ENTER(t->_ix);
+    return TRUE;
+  }
+  if (m->owner == t) {
+    m->entries++;
+    TRACE_TASK_MUTEX_ENTER_M(t->_ix);
+    ASSERT(m->entries < 254);
     return TRUE;
   }
   // taken, mark us still busy and insert us into mutexq
-  task *t = task_sys.current;
   TRACE_TASK_MUTEX_WAIT(t->_ix);
   if ((t->flags & (TASK_STATIC | TASK_LOOP)) == 0) {
     task_pool.mask[t->_ix/32] &= ~(1<<(t->_ix & 0x1f));
@@ -438,20 +446,34 @@ bool TASK_mutex_lock(task_mutex *m) {
 }
 
 bool TASK_mutex_try_lock(task_mutex *m) {
-  if (m->taken) {
-    return FALSE;
+  if (!m->taken) {
+    TRACE_TASK_MUTEX_ENTER(task_sys.current->_ix);
+    task_take_lock(m);
+    return TRUE;
   }
-  TRACE_TASK_MUTEX_ENTER(task_sys.current->_ix);
-  task_take_lock(m);
-  return TRUE;
+  if (m->owner == task_sys.current) {
+    m->entries++;
+    TRACE_TASK_MUTEX_ENTER_M(t->_ix);
+    ASSERT(m->entries < 254);
+    return TRUE;
+  }
+  return FALSE;
 }
 
 void TASK_mutex_unlock(task_mutex *m) {
+  ASSERT(m->entries > 0);
+  ASSERT(m->owner == task_sys.current);
+  if (m->entries > 0) {
+    m->entries--;
+    TRACE_TASK_MUTEX_EXIT_L(task_sys.current->_ix);
+    return;
+  }
+  TRACE_TASK_MUTEX_EXIT(task_sys.current->_ix);
   task_release_lock(m);
   task *t = m->head;
   while (t) {
     t->flags &= ~TASK_WAIT;
-    TRACE_TASK_MUTEX_EXIT(t->_ix);
+    TRACE_TASK_MUTEX_WAKE(t->_ix);
 	TASK_run(t, t->arg, t->arg_p);
     t = t->_next;
   }

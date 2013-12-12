@@ -49,10 +49,12 @@ typedef struct task_timer_s {
 #ifdef CONFIG_TASKQ_MUTEX
 typedef struct {
   bool taken;
+  u8_t entries;
+  task *owner;
   volatile task* head;
   volatile task* last;
 } task_mutex;
-
+#define TASK_MUTEX_INIT {FALSE,0,NULL,NULL,NULL}
 #endif
 
 /**
