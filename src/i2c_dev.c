@@ -14,6 +14,10 @@
 static void i2c_dev_reset(i2c_dev *dev) {
   dev->bus->user_arg &= ~I2C_DEV_BUS_USER_ARG_BUSY_BIT;
   TASK_stop_timer(&dev->tmo_tim);
+  if (dev->tmo_task) {
+    TASK_free(dev->tmo_task);
+    dev->tmo_task = NULL;
+  }
 }
 
 static void i2c_dev_config(i2c_bus *bus, u32_t clock_config) {
@@ -153,7 +157,6 @@ void I2C_DEV_close(i2c_dev *dev) {
   if (dev->opened) {
     i2c_dev_reset(dev);
     I2C_release(dev->bus);
-    TASK_free(dev->tmo_task);
     TASK_stop_timer(&dev->tmo_tim);
 
     dev->opened = FALSE;
