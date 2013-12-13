@@ -25,8 +25,8 @@ static struct {
 } task_sys;
 
 static struct {
-  task task[_TASK_POOL];
-  u32_t mask[((_TASK_POOL-1)/32)+1];
+  task task[CONFIG_TASK_POOL];
+  u32_t mask[((CONFIG_TASK_POOL-1)/32)+1];
 } task_pool;
 
 static u8_t _g_timer_ix = 0;
@@ -35,7 +35,7 @@ static void task_insert_timer(task_timer *timer, time actual_time);
 
 static void print_task(u8_t io, task *t, const char *prefix) {
   if (t) {
-    ioprint(io, "%s ix:%02x  f:%08x  FLAGS:%s%s%s%s%s  arg:%08x  argp:%08x\n"
+    ioprint(io, "%s ix:%02x  f:%08x  FLAGS:%s%s%s%s%s%s  arg:%08x  argp:%08x\n"
         "%s        next:%08x  run_reqs:%i\n"
       ,
       prefix,
@@ -44,6 +44,7 @@ static void print_task(u8_t io, task *t, const char *prefix) {
       t->flags & TASK_EXE ? " E" : "/e",
       t->flags & TASK_RUN ? " R" : "/r",
       t->flags & TASK_WAIT ? " W" : "/w",
+      t->flags & TASK_KILLED ? " K" : "/k",
       t->flags & TASK_LOOP ? " L" : "/l",
       t->flags & TASK_STATIC ? " S" : "/s",
       t->arg,
@@ -76,7 +77,7 @@ static void print_timer(u8_t io, task_timer *t, const char *prefix, time now) {
 #define TASK_TIM_DUMP_OUTPUT "  tmr list __ "
 void TASK_dump_pool(u8_t io) {
   int i, j;
-  for (i = 0; i <= (_TASK_POOL-1)/32; i++) {
+  for (i = 0; i <= (CONFIG_TASK_POOL-1)/32; i++) {
        if (task_pool.mask[i]) {
          for (j = 0; j < 32; j++) {
            int ix = i*32+j;
@@ -128,7 +129,7 @@ void TASK_init() {
   DBG(D_TASK, D_DEBUG, "TASK init\n");
   memset(&task_sys, 0, sizeof(task_sys));
   memset(&task_pool, 0, sizeof(task_pool));
-  for (i = 0; i < _TASK_POOL; i++) {
+  for (i = 0; i < CONFIG_TASK_POOL; i++) {
     task_pool.task[i]._ix = i;
     task_pool.mask[i/32] |= (1<<(i&0x1f));
   }
@@ -140,7 +141,7 @@ void TASK_init() {
 static task* TASK_snatch_free(int dir) {
   int i, j;
   if (dir) {
-    for (i = (_TASK_POOL-1)/32; i >= 0; i--) {
+    for (i = (CONFIG_TASK_POOL-1)/32; i >= 0; i--) {
       if (task_pool.mask[i]) {
         for (j = 31; j >= 0; j--) {
           if (task_pool.mask[i] & (1<<j)) {
@@ -150,7 +151,7 @@ static task* TASK_snatch_free(int dir) {
       }
     }
   } else {
-    for (i = 0; i <= (_TASK_POOL-1)/32; i++) {
+    for (i = 0; i <= (CONFIG_TASK_POOL-1)/32; i++) {
       if (task_pool.mask[i]) {
         for (j = 0; j < 32; j++) {
           if (task_pool.mask[i] & (1<<j)) {
@@ -175,7 +176,7 @@ task* TASK_create(task_f f, u8_t flags) {
   if (task) {
     task->f = f;
     task->run_requests = 0;
-    task->flags = flags & (~(TASK_RUN | TASK_EXE));
+    task->flags = flags & (~(TASK_RUN | TASK_EXE | TASK_WAIT | TASK_KILLED));
     return task;
   } else {
     return 0;
@@ -188,10 +189,11 @@ void TASK_loop(task* task, u32_t arg, void* arg_p) {
 }
 
 void TASK_run(task* task, u32_t arg, void* arg_p) {
+  ASSERT((task_pool.mask[task->_ix/32] & (1<<(task->_ix & 0x1f))) == 0); // check it is allocated
   ASSERT((task->flags & TASK_RUN) == 0);       // already scheduled
   ASSERT((task->flags & TASK_WAIT) == 0);      // waiting for a mutex
   ASSERT(task >= &task_pool.task[0]);          // mem check
-  ASSERT(task <= &task_pool.task[_TASK_POOL]); // mem check
+  ASSERT(task <= &task_pool.task[CONFIG_TASK_POOL]); // mem check
   task->flags |= TASK_RUN;
   task->arg = arg;
   task->arg_p = arg_p;
@@ -270,8 +272,9 @@ void TASK_stop_timer(task_timer* timer) {
   exit_critical();
 }
 
-void TASK_kill() {
+void TASK_stop() {
   task_sys.current->flags &= ~(TASK_LOOP | TASK_RUN);
+  task_sys.current->flags |= TASK_KILLED;
 }
 
 u32_t TASK_id() {
@@ -295,12 +298,43 @@ void TASK_wait() {
 void TASK_free(task *t) {
   enter_critical();
   if ((t->flags & TASK_RUN) == 0) {
-    // not scheduled, so remove it directly to pool
+    // not scheduled, so remove it directly from pool
     task_pool.mask[t->_ix/32] |= (1<<(t->_ix & 0x1f));
   }
   // else, scheduled => will be removed in TASK_tick when executed
 
-  t->flags &= ~(TASK_RUN | TASK_STATIC | TASK_LOOP);
+#ifdef CONFIG_TASKQ_MUTEX
+  // check if task is in a mutex wait queue, and remove it if so
+  if (t->flags & TASK_WAIT) {
+    ASSERT(t->wait_mutex);
+    task_mutex *m = t->wait_mutex;
+    if (m->head == t) {
+      m->head = t->_next;
+      if (m->last == t) {
+        m->last = NULL;
+      }
+    } else {
+      task *prev_ct = NULL;
+      task *ct = (task *)m->head;
+      while (ct != NULL) {
+        if (ct == t) {
+          ASSERT(prev_ct);
+          prev_ct->_next = t->_next;
+          if (m->last == t) {
+            m->last = prev_ct;
+            prev_ct->_next = NULL;
+          }
+          break;
+        }
+        prev_ct = ct;
+        ct = ct->_next;
+      }
+    }
+  }
+#endif
+
+  t->flags &= ~(TASK_RUN | TASK_STATIC | TASK_LOOP | TASK_WAIT);
+  t->flags |= TASK_KILLED;
   exit_critical();
 }
 
@@ -314,21 +348,21 @@ u32_t TASK_tick() {
     return 0;
   }
   ASSERT(t >= &task_pool.task[0]);
-  ASSERT(t <= &task_pool.task[_TASK_POOL]);
+  ASSERT(t <= &task_pool.task[CONFIG_TASK_POOL]);
 
   // execute
-  char do_run = t->flags & TASK_RUN;
+  bool do_run = (t->flags & (TASK_RUN | TASK_KILLED)) == TASK_RUN;
 
   // first, fiddle with queue - remove task from schedq unless loop
   // reinsert or kill off
-  if ((t->flags & TASK_LOOP)) {
+  if ((t->flags & (TASK_LOOP | TASK_KILLED)) == TASK_LOOP) {
     // loop, put this at end or simply keep if the only one
     if (t->_next != 0) {
       task_sys.last->_next = (task *)t;
       task_sys.head = t->_next;
       if (task_sys.head != 0) {
         ASSERT(task_sys.head >= &task_pool.task[0]);
-        ASSERT(task_sys.head <= &task_pool.task[_TASK_POOL]);
+        ASSERT(task_sys.head <= &task_pool.task[CONFIG_TASK_POOL]);
       }
       task_sys.last = t;
     }
@@ -339,7 +373,7 @@ u32_t TASK_tick() {
       task_sys.last = 0;
     } else {
       ASSERT(task_sys.head >= &task_pool.task[0]);
-      ASSERT(task_sys.head <= &task_pool.task[_TASK_POOL]);
+      ASSERT(task_sys.head <= &task_pool.task[CONFIG_TASK_POOL]);
     }
     // free unless static
     if ((t->flags & TASK_STATIC) == 0) {
@@ -395,6 +429,7 @@ static void task_release_lock(task_mutex *m) {
 bool TASK_mutex_lock(task_mutex *m) {
   task *t = task_sys.current;
   if (!m->taken) {
+    m->entries = 1;
     task_take_lock(t, m);
     TRACE_TASK_MUTEX_ENTER(t->_ix);
     return TRUE;
@@ -405,8 +440,10 @@ bool TASK_mutex_lock(task_mutex *m) {
     ASSERT(m->entries < 254);
     return TRUE;
   }
-  // taken, mark us still busy and insert us into mutexq
+  // taken, mark task still allocated and insert into mutexq
   TRACE_TASK_MUTEX_WAIT(t->_ix);
+  enter_critical();
+  t->wait_mutex = m;
   if ((t->flags & (TASK_STATIC | TASK_LOOP)) == 0) {
     task_pool.mask[t->_ix/32] &= ~(1<<(t->_ix & 0x1f));
   }
@@ -420,7 +457,7 @@ bool TASK_mutex_lock(task_mutex *m) {
       task_sys.last = NULL;
     } else {
       // find the task pointing to the last task == current task
-      task *ct = task_sys.head;
+      task *ct = (task *)task_sys.head;
       while (ct->_next != t) {
         ct = ct->_next;
         ASSERT(ct);
@@ -430,14 +467,15 @@ bool TASK_mutex_lock(task_mutex *m) {
       task_sys.last = ct;
     }
   }
+  exit_critical();
 
   // insert into mutex queue
-  if (m.last == 0) {
-    m.head = t;
+  if (m->last == 0) {
+    m->head = t;
   } else {
-    m.last->_next = t;
+    m->last->_next = t;
   }
-  m.last = t;
+  m->last = t;
   t->_next = NULL;
   t->flags &= ~TASK_RUN;
   t->flags |= TASK_WAIT;
@@ -447,13 +485,14 @@ bool TASK_mutex_lock(task_mutex *m) {
 
 bool TASK_mutex_try_lock(task_mutex *m) {
   if (!m->taken) {
+    m->entries = 1;
+    task_take_lock(task_sys.current, m);
     TRACE_TASK_MUTEX_ENTER(task_sys.current->_ix);
-    task_take_lock(m);
     return TRUE;
   }
   if (m->owner == task_sys.current) {
     m->entries++;
-    TRACE_TASK_MUTEX_ENTER_M(t->_ix);
+    TRACE_TASK_MUTEX_ENTER_M(task_sys.current->_ix);
     ASSERT(m->entries < 254);
     return TRUE;
   }
@@ -462,24 +501,29 @@ bool TASK_mutex_try_lock(task_mutex *m) {
 
 void TASK_mutex_unlock(task_mutex *m) {
   ASSERT(m->entries > 0);
-  ASSERT(m->owner == task_sys.current);
-  if (m->entries > 0) {
+  //ASSERT(m->owner == task_sys.current);
+  if (m->entries > 1) {
     m->entries--;
     TRACE_TASK_MUTEX_EXIT_L(task_sys.current->_ix);
     return;
   }
   TRACE_TASK_MUTEX_EXIT(task_sys.current->_ix);
   task_release_lock(m);
-  task *t = m->head;
+  task *t = (task *)m->head;
   while (t) {
     t->flags &= ~TASK_WAIT;
+    t->wait_mutex = NULL;
     TRACE_TASK_MUTEX_WAKE(t->_ix);
-	TASK_run(t, t->arg, t->arg_p);
+    if ((t->flags & TASK_KILLED) == 0) {
+      TASK_run(t, t->arg, t->arg_p);
+    }
     t = t->_next;
   }
+  m->head = NULL;
+  m->last = NULL;
 }
 
-#endif
+#endif // CONFIG_TASKQ_MUTEX
 
 
 static void task_insert_timer(task_timer *timer, time actual_time) {
@@ -524,7 +568,7 @@ void TASK_timer() {
   task_timer *old_timer = NULL;
   while (cur_timer && cur_timer->start_time <= SYS_get_time_ms()) {
     enter_critical();
-    if ((cur_timer->task->flags & (TASK_RUN | TASK_WAIT) == 0) && cur_timer->alive) {
+    if (((cur_timer->task->flags & (TASK_RUN | TASK_WAIT)) == 0) && cur_timer->alive) {
       // expired, schedule for run
       TRACE_TASK_TIMER(cur_timer->_ix);
       TASK_run(cur_timer->task, cur_timer->arg, cur_timer->arg_p);

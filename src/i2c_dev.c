@@ -77,6 +77,7 @@ static void i2c_dev_callback_irq(i2c_bus *bus, int res) {
 }
 
 static void i2c_dev_tmo(u32_t ignore, void *dev_d) {
+
   i2c_dev *dev = (i2c_dev*)dev_d;
   DBG(D_I2C, D_DEBUG, "i2c_dev: timeout\n");
   i2c_dev_finish(dev, I2C_ERR_DEV_TIMEOUT);
@@ -104,7 +105,6 @@ void I2C_DEV_open(i2c_dev *dev) {
   if (!dev->opened) {
     I2C_register(dev->bus);
     i2c_dev_reset(dev);
-    dev->tmo_task = TASK_create(i2c_dev_tmo, 0);
     dev->opened = TRUE;
   }
 }
@@ -118,6 +118,8 @@ int I2C_DEV_sequence(i2c_dev *dev, const i2c_dev_sequence *seq, u8_t seq_len) {
   }
 
   dev->bus->user_arg |= I2C_DEV_BUS_USER_ARG_BUSY_BIT;
+
+  dev->tmo_task = TASK_create(i2c_dev_tmo, 0);
 
   TASK_start_timer(dev->tmo_task, &dev->tmo_tim, 0, dev, 500, 0, "i2c_tmo");
 
@@ -152,6 +154,8 @@ void I2C_DEV_close(i2c_dev *dev) {
     i2c_dev_reset(dev);
     I2C_release(dev->bus);
     TASK_free(dev->tmo_task);
+    TASK_stop_timer(&dev->tmo_tim);
+
     dev->opened = FALSE;
   }
 }

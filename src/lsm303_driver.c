@@ -88,9 +88,17 @@ static void lsm_acc_cb(i2c_dev *idev, int res) {
     x = (dev->buf[0] | ((s8_t)dev->buf[1] << 8))>>4;
     y = (dev->buf[2] | ((s8_t)dev->buf[3] << 8))>>4;
     z = (dev->buf[4] | ((s8_t)dev->buf[5] << 8))>>4;
-    dev->acc[0] = x;
-    dev->acc[1] = y;
-    dev->acc[2] = z;
+    u8_t lp = dev->lp_filter_acc;
+    if (lp > 0) {
+      // (x*(256-k) + y*k)/256 = (256*x - x*k + y*k)/256 = (256*x - k*(x - y))/256
+      dev->acc[0] = (s16_t)( ((s32_t)x*256 - (s32_t)lp*((s32_t)x - (s32_t)dev->acc[0]))>>8 );
+      dev->acc[1] = (s16_t)( ((s32_t)y*256 - (s32_t)lp*((s32_t)y - (s32_t)dev->acc[1]))>>8 );
+      dev->acc[2] = (s16_t)( ((s32_t)z*256 - (s32_t)lp*((s32_t)z - (s32_t)dev->acc[2]))>>8 );
+    } else {
+      dev->acc[0] = x;
+      dev->acc[1] = y;
+      dev->acc[2] = z;
+    }
     if (call_mag) {
       res = lsm_read_mag(dev);
     } else {
@@ -129,9 +137,17 @@ static void lsm_mag_cb(i2c_dev *idev, int res) {
     if (x < LSM_MAX_VAL_M && x > LSM_MIN_VAL_M &&
         y < LSM_MAX_VAL_M && y > LSM_MIN_VAL_M &&
         z < LSM_MAX_VAL_M && z > LSM_MIN_VAL_M) {
-      dev->mag[0] = x;
-      dev->mag[1] = y;
-      dev->mag[2] = z;
+      u8_t lp = dev->lp_filter_mag;
+      if (lp > 0) {
+        // (x*(256-k) + y*k)/256 = (256*x - x*k + y*k)/256 = (256*x - k*(x - y))/256
+        dev->mag[0] = (s16_t)( ((s32_t)x*256 - (s32_t)lp*((s32_t)x - (s32_t)dev->mag[0]))>>8 );
+        dev->mag[1] = (s16_t)( ((s32_t)y*256 - (s32_t)lp*((s32_t)y - (s32_t)dev->mag[1]))>>8 );
+        dev->mag[2] = (s16_t)( ((s32_t)z*256 - (s32_t)lp*((s32_t)z - (s32_t)dev->mag[2]))>>8 );
+      } else {
+        dev->mag[0] = x;
+        dev->mag[1] = y;
+        dev->mag[2] = z;
+      }
       if (dev->callback) dev->callback(dev, res);
     } else {
       res = I2C_ERR_LSM303_BAD_READ;
@@ -159,6 +175,8 @@ void lsm_open(lsm303_dev *dev, i2c_bus *bus, bool sa0, void (*lsm_callback)(lsm3
   I2C_DEV_set_callback(&dev->i2c_mag, lsm_mag_cb);
   I2C_DEV_open(&dev->i2c_acc);
   I2C_DEV_open(&dev->i2c_mag);
+  dev->lp_filter_acc = 0;
+  dev->lp_filter_mag = 0;
   memset(dev->acc, 0, sizeof(dev->acc));
   memset(dev->mag, 0, sizeof(dev->mag));
   memset(dev->mag_limit_max, 0, sizeof(dev->mag_limit_max));
@@ -313,6 +331,11 @@ static void _lsm_norm(s16_t a[3], s16_t r[3]) {
   r[0] = xn;
   r[1] = yn;
   r[2] = zn;
+}
+
+void lsm_set_lowpass(lsm303_dev *dev, u8_t acc, u8_t mag) {
+  dev->lp_filter_acc = acc;
+  dev->lp_filter_mag = mag;
 }
 
 u16_t lsm_get_heading(lsm303_dev *dev) {
