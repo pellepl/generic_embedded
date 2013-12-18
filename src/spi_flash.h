@@ -12,12 +12,12 @@
 #include "spi_dev.h"
 #include "taskq.h"
 
-#define SPI_FLASH_ERR_BUSY            -1000
-#define SPI_FLASH_ERR_OPENED          -1001
-#define SPI_FLASH_ERR_CLOSED          -1002
-#define SPI_FLASH_ERR_UNDEFINED_STATE -1003
-#define SPI_FLASH_ERR_INVALID_ID      -1004
-#define SPI_FLASH_ERR_ADDRESS         -1005
+#define SPI_FLASH_ERR_BUSY            -2100
+#define SPI_FLASH_ERR_OPENED          -2101
+#define SPI_FLASH_ERR_CLOSED          -2102
+#define SPI_FLASH_ERR_UNDEFINED_STATE -2103
+#define SPI_FLASH_ERR_INVALID_ID      -2104
+#define SPI_FLASH_ERR_ADDRESS         -2105
 
 enum spi_flash_cmd_e {
   SPI_FLASH_CMD_READ_ID = 0,

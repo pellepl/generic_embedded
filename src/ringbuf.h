@@ -11,8 +11,8 @@
 #include "system.h"
 
 #define RB_OK               0
-#define RB_ERR_EMPTY        -1
-#define RB_ERR_FULL         -2
+#define RB_ERR_EMPTY        -500
+#define RB_ERR_FULL         -501
 
 typedef struct {
   u8_t *buffer;

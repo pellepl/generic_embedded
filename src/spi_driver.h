@@ -13,9 +13,9 @@
 #define SPI_BUFFER    256
 
 #define SPI_OK                    0
-#define SPI_ERR_BUS_BUSY          -1
-#define SPI_ERR_BUS_LEN_EXCEEDED  -2
-#define SPI_ERR_BUS_PHY           -3
+#define SPI_ERR_BUS_BUSY          -2000
+#define SPI_ERR_BUS_LEN_EXCEEDED  -2001
+#define SPI_ERR_BUS_PHY           -2002
 
 /*
  * SPI bus

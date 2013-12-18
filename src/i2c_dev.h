@@ -11,8 +11,8 @@
 #include "i2c_driver.h"
 #include "taskq.h"
 
-#define I2C_ERR_DEV_BUSY        -100
-#define I2C_ERR_DEV_TIMEOUT     -101
+#define I2C_ERR_DEV_BUSY        -1010
+#define I2C_ERR_DEV_TIMEOUT     -1011
 
 #define I2C_SEQ_TX(buffer, length) \
   (i2c_dev_sequence){ \

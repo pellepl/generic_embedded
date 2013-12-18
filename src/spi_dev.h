@@ -14,7 +14,7 @@
 #define SPI_CONF_IRQ_DRIVEN         (1<<0)
 #define SPI_CONF_IRQ_CALLBACK       (1<<1)
 
-#define SPI_ERR_DEV_BUSY            -100
+#define SPI_ERR_DEV_BUSY            -2010
 
 
 #define SPIDEV_CONFIG_CPOL_MASK     (1<<0)

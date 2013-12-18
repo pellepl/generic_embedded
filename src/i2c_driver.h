@@ -13,9 +13,9 @@
 #define I2C_OK                0
 #define I2C_RX_OK             1
 #define I2C_TX_OK             2
-#define I2C_ERR_BUS_BUSY      -1
-#define I2C_ERR_UNKNOWN_STATE -2
-#define I2C_ERR_PHY           -3
+#define I2C_ERR_BUS_BUSY      -1000
+#define I2C_ERR_UNKNOWN_STATE -1001
+#define I2C_ERR_PHY           -1002
 
 typedef enum {
   I2C_S_IDLE = 0,

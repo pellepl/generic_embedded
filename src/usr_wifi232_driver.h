@@ -12,12 +12,12 @@
 #include "ringbuf.h"
 
 #define WIFI_OK             0
-#define WIFI_ERR_NOT_READY  -1
-#define WIFI_ERR_TIMEOUT    -2
-#define WIFI_ERR_BUSY       -3
-#define WIFI_ERR_PARSE      -4
-#define WIFI_ERR_CONFIG     -5
-#define WIFI_SW_RESET       -999
+#define WIFI_ERR_NOT_READY  -3000
+#define WIFI_ERR_TIMEOUT    -3001
+#define WIFI_ERR_BUSY       -3002
+#define WIFI_ERR_PARSE      -3003
+#define WIFI_ERR_CONFIG     -3004
+#define WIFI_SW_RESET       -3005
 
 #define WIFI_END_OF_SCAN    1
 

@@ -10,8 +10,8 @@
 
 #include "i2c_dev.h"
 
-#define I2C_ERR_LSM303_STATE    -1000
-#define I2C_ERR_LSM303_BAD_READ -1001
+#define I2C_ERR_LSM303_STATE    -1100
+#define I2C_ERR_LSM303_BAD_READ -1101
 
 enum lsm_state {
   LSM_STATE_IDLE = 0,
