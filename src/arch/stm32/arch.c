@@ -8,7 +8,11 @@ void enter_critical(void) {
     // TODO PETER
     //print("enter critical from user!!\n");
   }
+#ifndef CONFIG_ARCH_CRITICAL_DISABLE_IRQ
   __disable_irq();
+#else
+  CONFIG_ARCH_CRITICAL_DISABLE_IRQ;
+#endif
   g_crit_entry++;
   TRACE_IRQ_OFF(g_crit_entry);
 }
@@ -18,7 +22,11 @@ void exit_critical(void) {
   g_crit_entry--;
   TRACE_IRQ_ON(g_crit_entry);
   if (g_crit_entry == 0) {
+#ifndef CONFIG_ARCH_CRITICAL_ENABLE_IRQ
     __enable_irq();
+#else
+  CONFIG_ARCH_CRITICAL_ENABLE_IRQ;
+#endif
   }
 }
 
