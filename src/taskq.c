@@ -229,7 +229,9 @@ void TASK_run(task* task, u32_t arg, void* arg_p) {
 
 void TASK_start_timer(task *task, task_timer* timer, u32_t arg, void *arg_p, time start_time, time recurrent_time,
     const char *name) {
+#ifndef CONFIG_TASK_NONCRITICAL_TIMER
   enter_critical();
+#endif
   task_sys.tim_lock = TRUE;
   ASSERT(timer->alive == FALSE);
   timer->_ix = _g_timer_ix++;
@@ -242,7 +244,9 @@ void TASK_start_timer(task *task, task_timer* timer, u32_t arg, void *arg_p, tim
   timer->name = name;
   task_insert_timer(timer, SYS_get_time_ms() + start_time);
   task_sys.tim_lock = FALSE;
+#ifndef CONFIG_TASK_NONCRITICAL_TIMER
   exit_critical();
+#endif
 }
 
 void TASK_set_timer_recurrence(task_timer* timer, time recurrent_time) {
@@ -250,7 +254,9 @@ void TASK_set_timer_recurrence(task_timer* timer, time recurrent_time) {
 }
 
 void TASK_stop_timer(task_timer* timer) {
+#ifndef CONFIG_TASK_NONCRITICAL_TIMER
   enter_critical();
+#endif
   task_sys.tim_lock = TRUE;
   timer->alive = FALSE;
 
@@ -269,7 +275,9 @@ void TASK_stop_timer(task_timer* timer) {
     cur_timer = cur_timer->_next;
   }
   task_sys.tim_lock = FALSE;
+#ifndef CONFIG_TASK_NONCRITICAL_TIMER
   exit_critical();
+#endif
 }
 
 void TASK_stop() {
@@ -567,7 +575,9 @@ void TASK_timer() {
 
   task_timer *old_timer = NULL;
   while (cur_timer && cur_timer->start_time <= SYS_get_time_ms()) {
+#ifndef CONFIG_TASK_NONCRITICAL_TIMER
     enter_critical();
+#endif
     if (((cur_timer->task->flags & (TASK_RUN | TASK_WAIT)) == 0) && cur_timer->alive) {
       // expired, schedule for run
       TRACE_TASK_TIMER(cur_timer->_ix);
@@ -583,6 +593,8 @@ void TASK_timer() {
     } else {
       old_timer->alive = FALSE;
     }
+#ifndef CONFIG_TASK_NONCRITICAL_TIMER
     exit_critical();
+#endif
   }
 }

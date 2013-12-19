@@ -8,6 +8,7 @@
 #ifndef TASKQ_H_
 #define TASKQ_H_
 
+#include "system.h"
 #include "types.h"
 
 #define CONFIG_TASKQ_MUTEX	// TODO PETER REMOVE
