@@ -1,4 +1,7 @@
+ifndef gensysdir
+$(warn defaulting path to generic system module, gensysdir variable not set)
 gensysdir = ../generic/system
+endif
 
 CPATH 	+= ${gensysdir}/src
 SPATH	+= ${gensysdir}/src

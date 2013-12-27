@@ -206,6 +206,8 @@ static void io_setup(gpio_port port, gpio_pin pin, io_speed speed, gpio_mode mod
     case PULLDOWN:
       hw.GPIO_Mode = GPIO_Mode_IPD;
       break;
+    case _IO_PULLS:
+  	break;
     }
     break;
   case OUT:
@@ -216,6 +218,8 @@ static void io_setup(gpio_port port, gpio_pin pin, io_speed speed, gpio_mode mod
     case PUSHPULL:
       hw.GPIO_Mode = GPIO_Mode_Out_PP;
       break;
+    case _IO_OUTTYPES:
+  	break;
     }
     break;
   case AF:
@@ -226,11 +230,15 @@ static void io_setup(gpio_port port, gpio_pin pin, io_speed speed, gpio_mode mod
     case PUSHPULL:
       hw.GPIO_Mode = GPIO_Mode_AF_PP;
       break;
+    case _IO_OUTTYPES:
+  	break;
     }
     break;
   case ANALOG:
     hw.GPIO_Mode = GPIO_Mode_AIN;
     break;
+  case _IO_MODES:
+	break;
   }
   hw.GPIO_Speed = io_speeds[speed];
   GPIO_Init((GPIO_TypeDef *)io_ports[port], &hw);
