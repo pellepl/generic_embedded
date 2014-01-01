@@ -19,21 +19,21 @@
 
 memcpy:
 #if 0
-	push	{lr}
-.loop:
-	ldrb	r3, [r1]
-	strb	r3, [r0]
-	add		r0, r0, #0x01
-	add		r1, r1, #0x01
-	subs	r2, r2, #0x01
-	bne		.loop
-  	pop		{pc}
+#	push	{lr}
+#.loop:
+#	ldrb	r3, [r1]
+#	strb	r3, [r0]
+#	add		r0, r0, #0x01
+#	add		r1, r1, #0x01
+#	subs	r2, r2, #0x01
+#	bne		.loop
+ # 	pop		{pc}
 #else
 	cmp		r2, #0
 	it		eq
 	bxeq	lr
 
-	push	{lr}
+	push	{r0, lr}
 
 	cmp		r2, #0x04*4*2
 	bhs		.memcpy_opt
@@ -72,7 +72,7 @@ memcpy:
 	bne		.memcpy4
 
 .memcpy_end:
-  	pop		{pc}
+  	pop		{r0, pc}
 
 .memcpy_opt:
 	eor		r3, r0, r1
