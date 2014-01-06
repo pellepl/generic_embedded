@@ -150,6 +150,10 @@ static void i2c_error(i2c_bus *bus, int err, bool reset) {
     if (bus->i2c_bus_callback) {
       bus->i2c_bus_callback(bus, err);
     }
+  } else {
+    if (reset) {
+      I2C_GenerateSTOP(I2C_HW(bus), ENABLE);
+    }
   }
 }
 
@@ -214,6 +218,10 @@ void I2C_IRQ_err(i2c_bus *bus) {
 void I2C_IRQ_ev(i2c_bus *bus) {
   u32_t ev = I2C_GetLastEvent(I2C_HW(bus) );
   I2C_HW_DEBUG(D_I2C, D_DEBUG, "i2c_ev: %08x\n", ev);
+  if (bus->state == I2C_S_IDLE) {
+    i2c_error(bus, I2C_ERR_UNKNOWN_STATE, TRUE);
+    return;
+  }
   switch (ev) {
 
   // EV5

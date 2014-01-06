@@ -139,6 +139,8 @@ int I2C_DEV_sequence(i2c_dev *dev, const i2c_dev_sequence *seq, u8_t seq_len) {
   dev->cur_seq.gen_stop = 0;
   dev->cur_seq.dir = 0;
 
+  I2C_set_callback(dev->bus, i2c_dev_callback_irq);
+
   i2c_dev_exec(dev);
 
   return I2C_OK;
