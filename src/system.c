@@ -109,11 +109,20 @@ time SYS_get_tick() {
   return sys.time_tick;
 }
 
+static void (*assert_cb)(void) = NULL;
+
+void SYS_set_assert_callback(void (*f)(void)) {
+  assert_cb = f;
+}
+
 void SYS_assert(const char* file, int line) {
   enter_critical();
 #ifdef CONFIG_SHARED_MEM
   SHMEM_set_reboot_reason(REBOOT_ASSERT);
 #endif
+  if (assert_cb) {
+    assert_cb();
+  }
 #ifdef CONFIG_CNC
   CNC_enable_error(1<<CNC_ERROR_BIT_EMERGENCY);
 #endif
