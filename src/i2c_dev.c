@@ -9,9 +9,16 @@
 #include "miniutils.h"
 #include "taskq.h"
 
+// this bit is used in the i2c bus user arg to denote
+// that the actual bus may be free, bit is awaiting more
+// commands from an active i2c device
 #define I2C_DEV_BUS_USER_ARG_BUSY_BIT       (1<<0)
+// magic sequence length denoting that we are querying a
+// device only
+#define I2C_DEV_SEQ_LEN_QUERY               255
 
 static void i2c_dev_reset(i2c_dev *dev) {
+  dev->busy = FALSE;
   dev->bus->user_arg &= ~I2C_DEV_BUS_USER_ARG_BUSY_BIT;
   TASK_stop_timer(&dev->tmo_tim);
   if (dev->tmo_task) {
@@ -75,8 +82,12 @@ static void i2c_dev_callback_irq(i2c_bus *bus, int res) {
     i2c_dev_finish(dev, res);
   } else {
     DBG(D_I2C, D_DEBUG, "i2c_dev: irq - ok\n");
-
-    i2c_dev_exec(dev);
+    if (dev->seq_len == I2C_DEV_SEQ_LEN_QUERY) {
+      dev->seq_len = 0;
+      i2c_dev_finish(dev, res);
+    } else {
+      i2c_dev_exec(dev);
+    }
   }
 }
 
@@ -113,28 +124,30 @@ void I2C_DEV_open(i2c_dev *dev) {
   }
 }
 
-static void i2c_setup(i2c_dev *dev, u32_t timeout) {
+static void i2c_dev_prepare(i2c_dev *dev, u32_t timeout) {
+  int res = I2C_set_callback(dev->bus, i2c_dev_callback_irq);
+  ASSERT(res == I2C_OK);
+
+  dev->busy = TRUE;
+
   dev->tmo_task = TASK_create(i2c_dev_tmo, 0);
 
-  TASK_start_timer(dev->tmo_task, &dev->tmo_tim, 0, dev, timeout, 0, "i2c_tmo");
-
-  if (dev->bus->user_p == NULL || ((i2c_dev *)dev->bus->user_p)->clock_configuration != dev->clock_configuration) {
+  if (dev->bus->user_p == NULL ||
+      ((i2c_dev *)dev->bus->user_p)->clock_configuration != dev->clock_configuration) {
     // last bus use wasn't this device, so reconfigure
     i2c_dev_config(dev->bus, dev->clock_configuration);
   }
 
-  I2C_set_callback(dev->bus, i2c_dev_callback_irq);
+  TASK_start_timer(dev->tmo_task, &dev->tmo_tim, 0, dev, timeout, 0, "i2c_tmo");
 }
 
 int I2C_DEV_sequence(i2c_dev *dev, const i2c_dev_sequence *seq, u8_t seq_len) {
   if (dev->bus->state != I2C_S_IDLE) {
     return I2C_ERR_BUS_BUSY;
   }
-  if (dev->bus->user_arg & I2C_DEV_BUS_USER_ARG_BUSY_BIT) {
+  if ((dev->bus->user_arg & I2C_DEV_BUS_USER_ARG_BUSY_BIT) || dev->busy) {
     return I2C_ERR_DEV_BUSY;
   }
-
-  i2c_setup(dev, 500);
 
   dev->bus->user_arg |= I2C_DEV_BUS_USER_ARG_BUSY_BIT;
 
@@ -144,6 +157,8 @@ int I2C_DEV_sequence(i2c_dev *dev, const i2c_dev_sequence *seq, u8_t seq_len) {
   dev->cur_seq.len = 0;
   dev->cur_seq.gen_stop = 0;
   dev->cur_seq.dir = 0;
+
+  i2c_dev_prepare(dev, 500);
 
   i2c_dev_exec(dev);
 
@@ -155,27 +170,30 @@ int I2C_DEV_query(i2c_dev *dev) {
   if (dev->bus->state != I2C_S_IDLE) {
     return I2C_ERR_BUS_BUSY;
   }
-  if (dev->bus->user_arg & I2C_DEV_BUS_USER_ARG_BUSY_BIT) {
+  if ((dev->bus->user_arg & I2C_DEV_BUS_USER_ARG_BUSY_BIT) || dev->busy) {
     return I2C_ERR_DEV_BUSY;
   }
 
   dev->bus->user_arg |= I2C_DEV_BUS_USER_ARG_BUSY_BIT;
 
-  i2c_setup(dev, 50);
+  dev->seq_len = I2C_DEV_SEQ_LEN_QUERY;
 
-  res =  I2C_query(dev->bus, dev->addr);
+  i2c_dev_prepare(dev, 50);
+  dev->bus->user_p = dev;
+
+  res = I2C_query(dev->bus, dev->addr);
 
   if (res != I2C_OK) {
     DBG(D_I2C, D_DEBUG, "i2c_dev: query call failed %i\n", res);
     i2c_dev_finish(dev, res);
   }
 
-
   return I2C_OK;
 }
 
 int I2C_DEV_set_callback(i2c_dev *dev, i2c_dev_callback cb) {
-  if (dev->bus->user_arg & I2C_DEV_BUS_USER_ARG_BUSY_BIT) {
+//  if (dev->bus->user_arg & I2C_DEV_BUS_USER_ARG_BUSY_BIT) {
+  if (dev->busy) {
     return I2C_ERR_DEV_BUSY;
   }
   dev->i2c_dev_callback = cb;
@@ -194,5 +212,6 @@ void I2C_DEV_close(i2c_dev *dev) {
 }
 
 bool I2C_DEV_is_busy(i2c_dev *dev) {
-  return I2C_is_busy(dev->bus) | ((dev->bus->user_arg & I2C_DEV_BUS_USER_ARG_BUSY_BIT) != 0);
+  return I2C_is_busy(dev->bus) | ((dev->bus->user_arg & I2C_DEV_BUS_USER_ARG_BUSY_BIT) != 0) |
+      dev->busy;
 }

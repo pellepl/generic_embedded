@@ -68,6 +68,7 @@ typedef struct i2c_dev_s {
   task *tmo_task;
   task_timer tmo_tim;
   bool opened;
+  bool busy;
   u8_t addr;
   void (*i2c_dev_callback)(struct i2c_dev_s *s, int result);
   i2c_dev_sequence cur_seq;
