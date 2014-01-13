@@ -113,7 +113,45 @@ void I2C_DEV_open(i2c_dev *dev) {
   }
 }
 
+static void i2c_setup(i2c_dev *dev, u32_t timeout) {
+  dev->tmo_task = TASK_create(i2c_dev_tmo, 0);
+
+  TASK_start_timer(dev->tmo_task, &dev->tmo_tim, 0, dev, timeout, 0, "i2c_tmo");
+
+  if (dev->bus->user_p == NULL || ((i2c_dev *)dev->bus->user_p)->clock_configuration != dev->clock_configuration) {
+    // last bus use wasn't this device, so reconfigure
+    i2c_dev_config(dev->bus, dev->clock_configuration);
+  }
+
+  I2C_set_callback(dev->bus, i2c_dev_callback_irq);
+}
+
 int I2C_DEV_sequence(i2c_dev *dev, const i2c_dev_sequence *seq, u8_t seq_len) {
+  if (dev->bus->state != I2C_S_IDLE) {
+    return I2C_ERR_BUS_BUSY;
+  }
+  if (dev->bus->user_arg & I2C_DEV_BUS_USER_ARG_BUSY_BIT) {
+    return I2C_ERR_DEV_BUSY;
+  }
+
+  i2c_setup(dev, 500);
+
+  dev->bus->user_arg |= I2C_DEV_BUS_USER_ARG_BUSY_BIT;
+
+  dev->seq_len = seq_len;
+  dev->seq_list = (i2c_dev_sequence *)seq;
+  dev->cur_seq.buf = 0;
+  dev->cur_seq.len = 0;
+  dev->cur_seq.gen_stop = 0;
+  dev->cur_seq.dir = 0;
+
+  i2c_dev_exec(dev);
+
+  return I2C_OK;
+}
+
+int I2C_DEV_query(i2c_dev *dev) {
+  int res;
   if (dev->bus->state != I2C_S_IDLE) {
     return I2C_ERR_BUS_BUSY;
   }
@@ -123,25 +161,15 @@ int I2C_DEV_sequence(i2c_dev *dev, const i2c_dev_sequence *seq, u8_t seq_len) {
 
   dev->bus->user_arg |= I2C_DEV_BUS_USER_ARG_BUSY_BIT;
 
-  dev->tmo_task = TASK_create(i2c_dev_tmo, 0);
+  i2c_setup(dev, 50);
 
-  TASK_start_timer(dev->tmo_task, &dev->tmo_tim, 0, dev, 500, 0, "i2c_tmo");
+  res =  I2C_query(dev->bus, dev->addr);
 
-  if (dev->bus->user_p == NULL || ((i2c_dev *)dev->bus->user_p)->clock_configuration != dev->clock_configuration) {
-    // last bus use wasn't this device, so reconfigure
-    i2c_dev_config(dev->bus, dev->clock_configuration);
+  if (res != I2C_OK) {
+    DBG(D_I2C, D_DEBUG, "i2c_dev: query call failed %i\n", res);
+    i2c_dev_finish(dev, res);
   }
 
-  dev->seq_len = seq_len;
-  dev->seq_list = (i2c_dev_sequence *)seq;
-  dev->cur_seq.buf = 0;
-  dev->cur_seq.len = 0;
-  dev->cur_seq.gen_stop = 0;
-  dev->cur_seq.dir = 0;
-
-  I2C_set_callback(dev->bus, i2c_dev_callback_irq);
-
-  i2c_dev_exec(dev);
 
   return I2C_OK;
 }

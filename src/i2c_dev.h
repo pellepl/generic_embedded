@@ -92,6 +92,8 @@ int I2C_DEV_sequence(i2c_dev *dev, const i2c_dev_sequence *seq, u8_t seq_len);
 
 void I2C_DEV_close(i2c_dev *dev);
 
+int I2C_DEV_query(i2c_dev *dev);
+
 bool I2C_DEV_is_busy(i2c_dev *dev);
 
 #endif /* I2C_DEV_H_ */
