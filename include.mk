@@ -143,6 +143,13 @@ ifeq (1, $(strip $(CONFIG_LSM303)))
 FLAGS	+= -DCONFIG_LSM303
 CFILES	+= lsm303_driver.c
 endif
+
+#   CONFIG_M24M01 - i2c eeprom M24M01
+ifeq (1, $(strip $(CONFIG_M24M01)))
+FLAGS	+= -DCONFIG_M24M01
+CFILES	+= m24m01_driver.c
+endif
+
 endif
 
 ### CONFIG_SPI - spi driver

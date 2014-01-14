@@ -78,8 +78,13 @@ static void i2c_dev_callback_irq(i2c_bus *bus, int res) {
   i2c_dev *dev = (i2c_dev *)bus->user_p;
   if (res < I2C_OK) {
     DBG(D_I2C, D_DEBUG, "i2c_dev: irq - fail\n");
-
-    i2c_dev_finish(dev, res);
+    if (dev->seq_len == I2C_DEV_SEQ_LEN_QUERY &&
+        res == I2C_ERR_PHY &&
+        (I2C_phy_err(bus) & (1<<I2C_ERR_PHY_ACK_FAIL))) {
+      // handle by timeout
+    } else {
+      i2c_dev_finish(dev, res);
+    }
   } else {
     DBG(D_I2C, D_DEBUG, "i2c_dev: irq - ok\n");
     if (dev->seq_len == I2C_DEV_SEQ_LEN_QUERY) {
@@ -178,7 +183,7 @@ int I2C_DEV_query(i2c_dev *dev) {
 
   dev->seq_len = I2C_DEV_SEQ_LEN_QUERY;
 
-  i2c_dev_prepare(dev, 50);
+  i2c_dev_prepare(dev, 40);
   dev->bus->user_p = dev;
 
   res = I2C_query(dev->bus, dev->addr);
