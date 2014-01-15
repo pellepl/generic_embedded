@@ -182,6 +182,13 @@ void lsm_open(lsm303_dev *dev, i2c_bus *bus, bool sa0, void (*lsm_callback)(lsm3
   memset(dev->mag_limit_max, 0, sizeof(dev->mag_limit_max));
   memset(dev->mag_limit_min, 0, sizeof(dev->mag_limit_min));
 
+  dev->acc_limit_min[0] = -1064;
+  dev->acc_limit_max[0] = 1051;
+  dev->acc_limit_min[1] = -1003;
+  dev->acc_limit_max[1] = 1041;
+  dev->acc_limit_min[2] = -1012;
+  dev->acc_limit_max[2] = 1143;
+
   dev->mag_limit_min[0] = -683;
   dev->mag_limit_max[0] = 380;
   dev->mag_limit_min[1] = -534;
@@ -218,6 +225,11 @@ int lsm_config_default(lsm303_dev *dev) {
   }
 
   return res;
+}
+
+void lsm_set_acc_limits(lsm303_dev *dev, s16_t min[3], s16_t max[3]) {
+  memcpy(dev->acc_limit_min, min, sizeof(dev->acc_limit_min));
+  memcpy(dev->acc_limit_max, max, sizeof(dev->acc_limit_max));
 }
 
 void lsm_set_mag_limits(lsm303_dev *dev, s16_t min[3], s16_t max[3]) {
@@ -343,6 +355,7 @@ u16_t lsm_get_heading(lsm303_dev *dev) {
   // Q15
 
   s16_t m_scaled[3];
+  s16_t a_scaled[3];
   s16_t up[3] = {0, -(1<<15), 0};
 
   // scale and adjust mag vector acc to prefound max/mins
@@ -350,12 +363,17 @@ u16_t lsm_get_heading(lsm303_dev *dev) {
     m_scaled[i] = ((2*(dev->mag[i] - dev->mag_limit_min[i])) << 15) /
         (dev->mag_limit_max[i] - dev->mag_limit_min[i]) + (1<<15);
   }
+  // scale and adjust accele vector acc to prefound max/mins
+  for (i = 0; i < 3; i++) {
+    a_scaled[i] = ((2*(dev->acc[i] - dev->acc_limit_min[i])) << 15) /
+        (dev->acc_limit_max[i] - dev->acc_limit_min[i]) + (1<<15);
+  }
 
   s16_t a_norm[3];
   s16_t e[3];
   s16_t n[3];
   // normalize acc vector
-  _lsm_norm(dev->acc, a_norm);
+  _lsm_norm(a_scaled, a_norm);
   // get east vector by crossing mag and acc
   _lsm_cross(m_scaled, a_norm, e);
   // normalize it
