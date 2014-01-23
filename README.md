@@ -8,4 +8,5 @@ for chips I come across (e.g. sensors, transmitters, etc).
 
 Also contains kernel like stuff, e.g. task queue, preemptive scheduler, a.o.
 
+Right now aimed mostly at STM32F1 and STM32F4.
 
