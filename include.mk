@@ -40,10 +40,10 @@ CPATH 	+= ${genprocdir}
 SPATH	+= ${genprocdir}
 INC 	+= -I${genprocdir}
 
-stmlibdir = ../stm32f4_lib/STM32F4xx_DSP_StdPeriph_Lib_V1.1.0/Libraries
-stmdriverdir = ${stmlibdir}/STM32F4xx_StdPeriph_Driver
-stmcmsisdir = ${stmlibdir}/CMSIS/Device/ST/STM32F4xx
-stmcmsisdircore = ${stmlibdir}/CMSIS/Include
+#stmlibdir = ../stm32f4_lib/STM32F4xx_DSP_StdPeriph_Lib_V1.3.0/Libraries
+#stmdriverdir = ${stmlibdir}/STM32F4xx_StdPeriph_Driver
+#stmcmsisdir = ${stmlibdir}/CMSIS/Device/ST/STM32F4xx
+#stmcmsisdircore = ${stmlibdir}/CMSIS/Include
 
 endif
 
