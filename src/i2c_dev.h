@@ -42,6 +42,31 @@
   .len = (length), \
   .buf = buffer }
 
+
+#define I2C_SEQ_TX_C(s, buffer, length) \
+  s.dir = I2C_DEV_TX;    \
+  s.gen_stop = I2C_DEV_RESTART; \
+  s.len = (length); \
+  s.buf = buffer;
+
+#define I2C_SEQ_RX_C(s, buffer, length) \
+  s.dir = I2C_DEV_RX;    \
+  s.gen_stop = I2C_DEV_RESTART; \
+  s.len = (length); \
+  s.buf = buffer;
+
+#define I2C_SEQ_TX_STOP_C(s, buffer, length) \
+  s.dir = I2C_DEV_TX;    \
+  s.gen_stop = I2C_DEV_STOP; \
+  s.len = (length); \
+  s.buf = buffer;
+
+#define I2C_SEQ_RX_STOP_C(s, buffer, length) \
+  s.dir = I2C_DEV_RX;    \
+  s.gen_stop = I2C_DEV_STOP; \
+  s.len = (length); \
+  s.buf = buffer;
+
 typedef enum {
   I2C_DEV_RX = 0,
   I2C_DEV_TX
