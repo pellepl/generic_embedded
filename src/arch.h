@@ -11,6 +11,8 @@
 void enter_critical(void);
 void exit_critical(void);
 bool within_critical(void);
+void irq_disable(void);
+void irq_enable(void);
 void arch_reset(void);
 void arch_sleep(void);
 void arch_busywait_us(u32_t ns);

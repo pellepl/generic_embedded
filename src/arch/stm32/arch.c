@@ -82,3 +82,12 @@ void arch_busywait_us(u32_t us) {
   }
 }
 
+void irq_disable(void) {
+  __disable_irq();
+}
+
+void irq_enable(void) {
+  __enable_irq();
+}
+
+

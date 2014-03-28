@@ -301,9 +301,11 @@ void I2C_IRQ_ev(i2c_bus *bus) {
     // rx reg filled
   case I2C_EVENT_MASTER_BYTE_RECEIVED :
     I2C_HW_DEBUG(D_I2C, D_DEBUG, "i2c_ev:   master byte rxed\n");
-    u8_t data = I2C_ReceiveData(I2C_HW(bus) );
-    *bus->buf++ = data;
-    bus->len--;
+    u8_t data = I2C_ReceiveData(I2C_HW(bus));
+    if (bus->len > 0) { // protect from spurious rx events
+      *bus->buf++ = data;
+      bus->len--;
+    }
     if (bus->len == 0) {
       if (bus->gen_stop) {
         I2C_GenerateSTOP(I2C_HW(bus), ENABLE);

@@ -116,7 +116,7 @@ void SYS_set_assert_callback(void (*f)(void)) {
 }
 
 void SYS_assert(const char* file, int line) {
-  enter_critical();
+  irq_disable();
 #ifdef CONFIG_SHARED_MEM
   SHMEM_set_reboot_reason(REBOOT_ASSERT);
 #endif
