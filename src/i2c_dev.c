@@ -137,6 +137,8 @@ static void i2c_dev_prepare(i2c_dev *dev, u32_t timeout) {
 
   dev->tmo_task = TASK_create(i2c_dev_tmo, 0);
 
+  ASSERT(dev->tmo_task);
+
   if (dev->bus->user_p == NULL ||
       ((i2c_dev *)dev->bus->user_p)->clock_configuration != dev->clock_configuration) {
     // last bus use wasn't this device, so reconfigure

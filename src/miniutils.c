@@ -184,6 +184,10 @@ void sprint(char *s, const char* f, ...) {
   va_end(arg_p);
 }
 
+void vsprint(char *s, const char* f, va_list arg_p) {
+  v_printf((long)s, f, arg_p);
+}
+
 static const char *I_BASE_ARR_L = "0123456789abcdefghijklmnopqrstuvwxyz";
 static const char *I_BASE_ARR_U = "0123456789ABCDEFGHIJKLMNOPQRTSUVWXYZ";
 

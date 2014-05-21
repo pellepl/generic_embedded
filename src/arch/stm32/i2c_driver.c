@@ -299,6 +299,7 @@ void I2C_IRQ_ev(i2c_bus *bus) {
     break;
     // EV7
     // rx reg filled
+  case I2C_IT_RXNE & 0x00ffffff:
   case I2C_EVENT_MASTER_BYTE_RECEIVED :
     I2C_HW_DEBUG(D_I2C, D_DEBUG, "i2c_ev:   master byte rxed\n");
     u8_t data = I2C_ReceiveData(I2C_HW(bus));

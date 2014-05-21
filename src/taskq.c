@@ -467,7 +467,7 @@ bool TASK_mutex_lock(task_mutex *m) {
     TRACE_TASK_MUTEX_ENTER(t->_ix);
     return TRUE;
   }
-  if (m->owner == t) {
+  if (m->reentrant && m->owner == t) {
     m->entries++;
     TRACE_TASK_MUTEX_ENTER_M(t->_ix);
     ASSERT(m->entries < 254);
@@ -525,7 +525,7 @@ bool TASK_mutex_try_lock(task_mutex *m) {
     TRACE_TASK_MUTEX_ENTER(task_sys.current->_ix);
     return TRUE;
   }
-  if (m->owner == task_sys.current) {
+  if (m->reentrant && m->owner == task_sys.current) {
     m->entries++;
     TRACE_TASK_MUTEX_ENTER_M(task_sys.current->_ix);
     ASSERT(m->entries < 254);
@@ -537,6 +537,7 @@ bool TASK_mutex_try_lock(task_mutex *m) {
 void TASK_mutex_unlock(task_mutex *m) {
   ASSERT(m->entries > 0);
   //ASSERT(m->owner == task_sys.current);
+  ASSERT(!m->reentrant && m->entries <= 1);
   if (m->entries > 1) {
     m->entries--;
     TRACE_TASK_MUTEX_EXIT_L(task_sys.current->_ix);

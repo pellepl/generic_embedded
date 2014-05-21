@@ -48,6 +48,8 @@ void print(const char* f, ...);
 void ioprint(int io, const char* f, ...);
 // format prints to specified string
 void sprint(char *s, const char* f, ...);
+// format prints to specified string with specified va_list
+void vsprint(char *s, const char* f, va_list arg_p);
 // format prints to console with specified va_list
 void vprint(const char* f, va_list arg_p);
 // format prints to specified io with specified va_list
