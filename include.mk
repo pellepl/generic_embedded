@@ -150,6 +150,13 @@ FLAGS	+= -DCONFIG_M24M01
 CFILES	+= m24m01_driver.c
 endif
 
+#   CONFIG_STMPE811 - i2c io expandor
+ifeq (1, $(strip $(CONFIG_STMPE811)))
+FLAGS	+= -DCONFIG_STMPE811
+CFILES	+= stmpe811_driver.c
+CFILES	+= stmpe811_handler.c
+endif
+
 endif
 
 ### CONFIG_SPI - spi driver
