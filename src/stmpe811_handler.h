@@ -50,6 +50,8 @@ typedef enum {
   STMPE811_HDL_STATE_TEMP_READ,
   STMPE811_HDL_STATE_TEMP_RESULT,
 
+  STMPE811_HDL_STATE_INT_STA_READ,
+
 } stmpe811_handler_state;
 
 typedef void (*stmpe811_handler_gpio_cb_fn)(u8_t gpio_mask, u8_t gpio_value);
@@ -138,6 +140,10 @@ int stmpe811_handler_gpio_define(stmpe811_handler *hdl, u8_t set, u8_t reset);
 int stmpe811_handler_adc_read(stmpe811_handler *hdl, u8_t adc);
 
 int stmpe811_handler_temp_read(stmpe811_handler *hdl, bool enable);
+
+int stmpe811_handler_int_sta_read(stmpe811_handler *hdl);
+
+u8_t stmpe811_handler_int_sta_get(stmpe811_handler *hdl);
 
 /* this function is to be called when an interrupt occurs on the stmpe811 */
 int stmpe811_handler_interrupt_cb(stmpe811_handler *hdl);

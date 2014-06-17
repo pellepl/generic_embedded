@@ -38,7 +38,7 @@ static volatile u8_t _crit = 0;
 #define TQ_EXIT_CRITICAL
 #endif
 
-static u8_t _g_timer_ix = 0;
+volatile static u8_t _g_timer_ix = 0;
 
 static void task_insert_timer(task_timer *timer, time actual_time);
 
@@ -116,6 +116,16 @@ void TASK_dump(u8_t io) {
   ioprint(io, "  pool bitmap ");
   for (ix = 0; ix < sizeof(task_pool.mask)/sizeof(task_pool.mask[0]); ix++) {
     ioprint(io, "%032b ", task_pool.mask[ix]);
+  }
+  ioprint(io, "\n");
+
+  for (ix = 0; ix < sizeof(task_pool.mask)/sizeof(task_pool.mask[0]); ix++) {
+    int bit;
+    for (bit = 0; bit < 32; bit++) {
+      if ((task_pool.mask[ix] & (1<<bit)) == 0) {
+        print_task(io, &task_pool.task[ix*32 + bit], " ");
+      }
+    }
   }
   ioprint(io, "\n");
 
@@ -274,6 +284,13 @@ void TASK_stop_timer(task_timer* timer) {
   enter_critical();
   TQ_ENTER_CRITICAL;
 #endif
+  if (!timer->alive) {
+#ifndef CONFIG_TASK_NONCRITICAL_TIMER
+  TQ_EXIT_CRITICAL;
+  exit_critical();
+#endif
+  return;
+  }
   task_sys.tim_lock = TRUE;
   timer->alive = FALSE;
 
@@ -547,13 +564,14 @@ void TASK_mutex_unlock(task_mutex *m) {
   task_release_lock(m);
   task *t = (task *)m->head;
   while (t) {
+    task *next = t->_next;
     t->flags &= ~TASK_WAIT;
     t->wait_mutex = NULL;
     TRACE_TASK_MUTEX_WAKE(t->_ix);
     if ((t->flags & TASK_KILLED) == 0) {
       TASK_run(t, t->arg, t->arg_p);
     }
-    t = t->_next;
+    t = next;
   }
   m->head = NULL;
   m->last = NULL;

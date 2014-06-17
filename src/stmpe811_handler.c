@@ -18,23 +18,23 @@ static int _stmpe811_handler_int_handle(stmpe811_handler *hdl, u16_t arg) {
   case STMPE811_HDL_STATE_INT_HANDLE:
     if (hdl->int_status & STMPE_INT_GPIO) {
       // gpio interrupt
-      STMPE_H_DBG("stmpe irq gpio\n");
+      STMPE_H_DBG("irq gpio\n");
       hdl->state = STMPE811_HDL_STATE_INT_GPIO_CLR;
       res = stmpe811_int_clear(&hdl->dev, STMPE_INT_GPIO);
     } else if (hdl->int_status & STMPE_INT_ADC) {
       // adc interrupt
-      STMPE_H_DBG("stmpe irq adc\n");
+      STMPE_H_DBG("irq adc\n");
       hdl->state = STMPE811_HDL_STATE_INT_ADC_CLR;
       res = stmpe811_int_clear(&hdl->dev, STMPE_INT_ADC);
     } else if (hdl->int_status & STMPE_INT_TEMP_SENS) {
       // temp interrupt
-      STMPE_H_DBG("stmpe irq temp\n");
+      STMPE_H_DBG("irq temp\n");
       hdl->state = STMPE811_HDL_STATE_INT_TEMP_CLR;
       res = stmpe811_int_clear(&hdl->dev, STMPE_INT_TEMP_SENS);
     } else {
       // no more interrupts, report ok
       hdl->state = STMPE811_HDL_STATE_IDLE;
-      STMPE_H_DBG("stmpe irq end\n");
+      STMPE_H_DBG("irq end\n");
       if (hdl->err_cb) hdl->err_cb(ostate, res);
       res = I2C_OK;
     }
@@ -180,6 +180,14 @@ static void _stmpe811_cb(struct stmpe811_dev_s *dev, int res,
     break;
   case STMPE811_HDL_STATE_GPIO_DEFINE_SET:
     hdl->state = STMPE811_HDL_STATE_IDLE;
+    if (hdl->err_cb) hdl->err_cb(state, res);
+    res = I2C_OK;
+    break;
+
+  // int sta read
+  case STMPE811_HDL_STATE_INT_STA_READ:
+    hdl->state = STMPE811_HDL_STATE_IDLE;
+    hdl->int_status = arg;
     if (hdl->err_cb) hdl->err_cb(state, res);
     res = I2C_OK;
     break;
@@ -426,5 +434,14 @@ int stmpe811_handler_temp_read(stmpe811_handler *hdl, bool enable) {
   (void)enable; // todo
   hdl->state = STMPE811_HDL_STATE_TEMP_READ;
   return stmpe811_temp_acquire(&hdl->dev, TRUE);
+}
+
+int stmpe811_handler_int_sta_read(stmpe811_handler *hdl) {
+  hdl->state = STMPE811_HDL_STATE_INT_STA_READ;
+  return stmpe811_int_status(&hdl->dev);
+}
+
+u8_t stmpe811_handler_int_sta_get(stmpe811_handler *hdl) {
+  return hdl->int_status;
 }
 

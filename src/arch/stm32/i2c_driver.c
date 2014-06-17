@@ -300,25 +300,26 @@ void I2C_IRQ_ev(i2c_bus *bus) {
     // EV7
     // rx reg filled
   case I2C_IT_RXNE & 0x00ffffff:
-  case I2C_EVENT_MASTER_BYTE_RECEIVED :
+  case I2C_EVENT_MASTER_BYTE_RECEIVED:
+  case I2C_EVENT_MASTER_BYTE_RECEIVED | (I2C_IT_SB & 0x00ffffff):
     I2C_HW_DEBUG(D_I2C, D_DEBUG, "i2c_ev:   master byte rxed\n");
     u8_t data = I2C_ReceiveData(I2C_HW(bus));
     if (bus->len > 0) { // protect from spurious rx events
       *bus->buf++ = data;
       bus->len--;
-    }
-    if (bus->len == 0) {
-      if (bus->gen_stop) {
-        I2C_GenerateSTOP(I2C_HW(bus), ENABLE);
+      if (bus->len == 0) {
+        if (bus->gen_stop) {
+          I2C_GenerateSTOP(I2C_HW(bus), ENABLE);
+        }
+        I2C_AcknowledgeConfig(I2C_HW(bus), DISABLE);
+        bool gen_cb = bus->state != I2C_S_IDLE;
+        i2c_finalize(bus);
+        if (bus->i2c_bus_callback && gen_cb) {
+          bus->i2c_bus_callback(bus, I2C_RX_OK);
+        }
       }
-      I2C_AcknowledgeConfig(I2C_HW(bus), DISABLE);
-      bool gen_cb = bus->state != I2C_S_IDLE;
-      i2c_finalize(bus);
-      if (bus->i2c_bus_callback && gen_cb) {
-        bus->i2c_bus_callback(bus, I2C_RX_OK);
-      }
+      bus->bad_ev_counter = 0;
     }
-    bus->bad_ev_counter = 0;
     break;
   case 0x30000:
     // why oh why stm..?

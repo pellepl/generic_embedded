@@ -11,9 +11,9 @@
 #include "system.h"
 #include "types.h"
 
-#define CONFIG_TASKQ_MUTEX	// TODO PETER REMOVE
-
-#define TASK_WARN_HIGH_EXE_TIME     40
+#ifndef TASK_WARN_HIGH_EXE_TIME
+#define TASK_WARN_HIGH_EXE_TIME     0
+#endif
 
 #ifndef CONFIG_TASK_POOL
 #define CONFIG_TASK_POOL      64
@@ -65,7 +65,7 @@ typedef struct task_timer_s {
 
 #ifdef CONFIG_TASKQ_MUTEX
 typedef struct task_mutex_s {
-  bool taken;
+  volatile bool taken;
   bool reentrant;
   u8_t entries;
   task *owner;
