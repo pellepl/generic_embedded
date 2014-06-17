@@ -21,8 +21,12 @@
 #include "cnc_control.h"
 #endif
 
-volatile u32_t __dbg_mask = CONFIG_DEFAULT_DEBUG_MASK;
-volatile u32_t __dbg_level = D_DEBUG;
+#ifndef DBG_ATTRIBUTE
+#define DBG_ATTRIBUTE
+#endif
+
+DBG_ATTRIBUTE volatile u32_t __dbg_mask = CONFIG_DEFAULT_DEBUG_MASK;
+DBG_ATTRIBUTE volatile u32_t __dbg_level = D_DEBUG;
 
 #ifdef DBG_TRACE_MON
 u16_t _trace_log[TRACE_SIZE+32]; // add slack, index incrementor is on deep waters

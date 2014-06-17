@@ -10,6 +10,19 @@
 
 #include "system.h"
 
+//#define I2C_EV_LOG_DBG
+
+#ifdef I2C_EV_LOG_DBG
+#ifndef I2C_EV_LOG_LEN
+#define I2C_EV_LOG_LEN 32
+#endif
+#define I2C_LOG_RESTART(_bus) _bus->log_ix = 0
+#define I2C_LOG(_bus, _ev) if (_bus->log_ix < I2C_EV_LOG_LEN) _bus->log[_bus->log_ix++] = _ev
+#else
+#define I2C_LOG_RESTART(_bus)
+#define I2C_LOG(_bus, _ev)
+#endif
+
 #define I2C_OK                0
 #define I2C_RX_OK             1
 #define I2C_TX_OK             2
@@ -23,6 +36,12 @@ typedef enum {
   I2C_S_RX,
   I2C_S_TX,
 } i2c_state;
+
+typedef enum {
+  I2C_OP_RX = 0,
+  I2C_OP_TX,
+  I2C_OP_QUERY
+} i2c_op;
 
 typedef enum {
   I2C_ERR_PHY_SMBUS_ALERT = 0,      // 1
@@ -43,17 +62,23 @@ typedef struct i2c_bus_s {
   u8_t attached_devices;
 
   volatile i2c_state state;
+  volatile i2c_op op;
   void (* i2c_bus_callback)(struct i2c_bus_s *s, int res);
 
   u8_t addr; // lsb denotes tx (0) or rx (1)
   u8_t *buf;
   u16_t len;
   bool gen_stop;
+  volatile bool restart_generated;
 
   void *user_p;
   volatile u32_t user_arg;
   u32_t bad_ev_counter;
   u32_t phy_error;
+#ifdef I2C_EV_LOG_DBG
+  u32_t log[I2C_EV_LOG_LEN];
+  volatile u8_t log_ix;
+#endif
 } i2c_bus;
 
 extern i2c_bus __i2c_bus_vec[I2C_MAX_ID];
@@ -87,5 +112,17 @@ u32_t I2C_phy_err(i2c_bus *bus);
 void I2C_IRQ_err(i2c_bus *bus);
 
 void I2C_IRQ_ev(i2c_bus *bus);
+
+void I2C_log_dump(i2c_bus *bus);
+
+#define I2C_LOG_RX(bus, addr) I2C_LOG(bus, (0x12340000 | addr))
+#define I2C_LOG_TX(bus, addr) I2C_LOG(bus, (0x12350000 | addr))
+#define I2C_LOG_QUERY(bus, addr) I2C_LOG(bus, (0x12360000 | addr))
+#define I2C_LOG_START(bus) I2C_LOG(bus, 0x01010000)
+#define I2C_LOG_STOP(bus) I2C_LOG(bus, 0x01020000)
+#define I2C_LOG_ERR(bus, err) I2C_LOG(bus, 0xffff0000 | err)
+#define I2C_LOG_EV(bus, ev) I2C_LOG(bus, 0x80000000 | ev)
+#define I2C_LOG_UNKNOWN_EV(bus, ev) I2C_LOG(bus, 0xf0000000 | ev)
+#define I2C_LOG_CB(bus) I2C_LOG(bus, 0x43210000)
 
 #endif /* I2C_DRIVER_H_ */

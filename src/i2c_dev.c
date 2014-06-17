@@ -32,7 +32,7 @@ static void i2c_dev_config(i2c_bus *bus, u32_t clock_config) {
 }
 
 static void i2c_dev_finish(i2c_dev *dev, int res) {
-  DBG(D_I2C, D_DEBUG, "i2c_dev: operation finished %i\n", res);
+  DBG(D_I2C, res < I2C_OK ? D_WARN : D_DEBUG, "i2c_dev: finished %i\n", res);
   i2c_dev_reset(dev);
   if (dev->i2c_dev_callback) {
     // todo : move to task if necessary
@@ -68,7 +68,7 @@ void i2c_dev_exec(i2c_dev *dev) {
       I2C_tx(dev->bus, dev->addr, dev->cur_seq.buf, dev->cur_seq.len, gen_stop) :
       I2C_rx(dev->bus, dev->addr, (u8_t *)dev->cur_seq.buf, dev->cur_seq.len, gen_stop);
   if (res != I2C_OK) {
-    DBG(D_I2C, D_DEBUG, "i2c_dev: sequence call failed %i\n", res);
+    DBG(D_I2C, D_WARN, "i2c_dev: sequence call failed %i\n", res);
     i2c_dev_finish(dev, res);
   }
 }
@@ -77,7 +77,7 @@ static void i2c_dev_callback_irq(i2c_bus *bus, int res) {
   ASSERT(bus != NULL);
   i2c_dev *dev = (i2c_dev *)bus->user_p;
   if (res < I2C_OK) {
-    DBG(D_I2C, D_DEBUG, "i2c_dev: irq - fail\n");
+    DBG(D_I2C, D_WARN, "i2c_dev: irq - fail err %i\n", res);
     if (dev->seq_len == I2C_DEV_SEQ_LEN_QUERY &&
         res == I2C_ERR_PHY &&
         (I2C_phy_err(bus) & (1<<I2C_ERR_PHY_ACK_FAIL))) {
@@ -99,7 +99,7 @@ static void i2c_dev_callback_irq(i2c_bus *bus, int res) {
 static void i2c_dev_tmo(u32_t ignore, void *dev_d) {
 
   i2c_dev *dev = (i2c_dev*)dev_d;
-  DBG(D_I2C, D_DEBUG, "i2c_dev: timeout\n");
+  DBG(D_I2C, D_WARN, "i2c_dev: timeout\n");
   i2c_dev_finish(dev, I2C_ERR_DEV_TIMEOUT);
   I2C_reset(dev->bus);
 }
