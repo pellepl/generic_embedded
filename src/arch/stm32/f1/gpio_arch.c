@@ -373,12 +373,12 @@ void EXTI9_5_IRQHandler(void) {
   TRACE_IRQ_EXIT(EXTI9_5_IRQn);
 }
 void EXTI15_10_IRQHandler(void) {
-  TRACE_IRQ_ENTER(EXTI15_10_IRQn);
+//  TRACE_IRQ_ENTER(EXTI15_10_IRQn);
   _gpio_check_exti(PIN10);
   _gpio_check_exti(PIN11);
   _gpio_check_exti(PIN12);
   _gpio_check_exti(PIN13);
   _gpio_check_exti(PIN14);
   _gpio_check_exti(PIN15);
-  TRACE_IRQ_EXIT(EXTI15_10_IRQn);
+//  TRACE_IRQ_EXIT(EXTI15_10_IRQn);
 }

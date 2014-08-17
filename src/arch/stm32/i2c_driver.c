@@ -32,7 +32,7 @@ int I2C_config(i2c_bus *bus, u32_t clock) {
   I2C_Init(I2C_HW(bus), &I2C_InitStruct);
 
   I2C_AcknowledgeConfig(I2C_HW(bus), ENABLE);
-  I2C_Cmd(I2C_HW(bus), ENABLE); // todo 2
+  I2C_Cmd(I2C_HW(bus), ENABLE);
   I2C_StretchClockCmd(I2C_HW(bus), ENABLE);
 
   return I2C_OK;
@@ -43,12 +43,9 @@ void I2C_init() {
   _I2C_BUS(0)->hw = I2C1_PORT;
 }
 
-static void i2c_kickoff(i2c_bus *bus, bool set_ack, bool ack) {
+static void i2c_kickoff(i2c_bus *bus,  bool ack) {
   I2C_ITConfig(I2C_HW(bus), I2C_IT_ERR | I2C_IT_BUF | I2C_IT_EVT, ENABLE);
-  //I2C_Cmd(I2C_HW(bus), ENABLE); // todo 1
-  if (set_ack) {
-    I2C_AcknowledgeConfig(I2C_HW(bus), ack ? ENABLE : DISABLE);
-  }
+  I2C_AcknowledgeConfig(I2C_HW(bus), ack ? ENABLE : DISABLE);
   I2C_GenerateSTOP(I2C_HW(bus), DISABLE);
   if (!bus->restart_generated) {
     I2C_LOG_START(bus);
@@ -71,7 +68,7 @@ int I2C_rx(i2c_bus *bus, u8_t addr, u8_t *rx, u16_t len, bool gen_stop) {
   bus->gen_stop = gen_stop;
   I2C_LOG_RESTART(bus);
   I2C_LOG_RX(bus, addr);
-  i2c_kickoff(bus, TRUE, len > 1);
+  i2c_kickoff(bus, len > 1);
   return I2C_OK;
 }
 
@@ -88,7 +85,7 @@ int I2C_tx(i2c_bus *bus, u8_t addr, const u8_t *tx, u16_t len, bool gen_stop) {
   bus->gen_stop = gen_stop;
   I2C_LOG_RESTART(bus);
   I2C_LOG_TX(bus, addr);
-  i2c_kickoff(bus, FALSE, FALSE);
+  i2c_kickoff(bus, FALSE);
   return I2C_OK;
 }
 
@@ -104,7 +101,7 @@ int I2C_query(i2c_bus *bus, u8_t addr) {
   bus->gen_stop = TRUE;
   I2C_LOG_RESTART(bus);
   I2C_LOG_QUERY(bus, addr);
-  i2c_kickoff(bus, FALSE, FALSE);
+  i2c_kickoff(bus, FALSE);
   return I2C_OK;
 }
 
@@ -149,7 +146,6 @@ static void i2c_finalize(i2c_bus *bus) {
   I2C_log_dump(bus);
   bus->state = I2C_S_IDLE;
   I2C_ITConfig(I2C_HW(bus), I2C_IT_ERR | I2C_IT_BUF | I2C_IT_EVT, DISABLE);
-  //I2C_Cmd(I2C_HW(bus), DISABLE); // todo 1
 }
 
 void I2C_reset(i2c_bus *bus) {
@@ -161,19 +157,17 @@ void I2C_reset(i2c_bus *bus) {
   I2C_GenerateSTOP(I2C_HW(bus), ENABLE);
   I2C_ReceiveData(I2C_HW(bus));
   I2C_ReceiveData(I2C_HW(bus));
-  //SYS_hardsleep_ms(1); // give some time to clock out
-  volatile u32_t a = 0x10000;
-  while (--a);
+  SYS_hardsleep_us(500); // give some time to clock out
 
   I2C_SoftwareResetCmd(I2C_HW(bus), ENABLE);
-  a = 0x10000;
-  while (--a);
+  SYS_hardsleep_us(100);
   I2C_SoftwareResetCmd(I2C_HW(bus), DISABLE);
   i2c_finalize(bus);
 }
 
 static void i2c_error(i2c_bus *bus, int err, bool reset) {
   bus->bad_ev_counter = 0;
+  bus->restart_generated = FALSE;
   if (bus->state != I2C_S_IDLE) {
     if (reset) {
       I2C_reset(bus);
@@ -263,7 +257,7 @@ void I2C_IRQ_err(i2c_bus *bus) {
 
   if (err) {
     I2C_LOG_ERR(bus, bus->phy_error);
-    i2c_error(bus, I2C_ERR_PHY, FALSE);
+    i2c_error(bus, I2C_ERR_PHY, bus->phy_error & ((1 << I2C_ERR_PHY_BUS_ERR) | (1 << I2C_ERR_PHY_ARBITRATION_LOST)));
   }
 }
 
@@ -277,11 +271,14 @@ void I2C_IRQ_ev(i2c_bus *bus) {
     return;
   }
 
+
+  u32_t sr1 = I2C_HW(bus)->SR1;
+  DBG(D_I2C, D_DEBUG, "I2C irq ev %02x\n", sr1);
+
   if (bus->op == I2C_OP_RX) {
 
     // ==== RX ====
 
-    u32_t sr1 = I2C_HW(bus)->SR1;
     if ((sr1 & I2C_IT_SB) && bus->state == I2C_S_GEN_START) {
       // send address | 0x01 for rx
       I2C_HW_DBG("rx it sb\n");
@@ -405,8 +402,6 @@ void I2C_IRQ_ev(i2c_bus *bus) {
   else {
 
     // ==== TX or QUERY ====
-
-    u32_t sr1 = I2C_HW(bus)->SR1;
 
     I2C_LOG_EV(bus, sr1);
     if (sr1 & I2C_IT_SB) {

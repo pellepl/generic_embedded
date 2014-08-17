@@ -166,7 +166,7 @@ static void lsm_mag_cb(i2c_dev *idev, int res) {
 }
 
 void lsm_open(lsm303_dev *dev, i2c_bus *bus, bool sa0, void (*lsm_callback)(lsm303_dev *dev, int res)) {
-  const u32_t clock = 100000;
+  const u32_t clock = 50000;
   I2C_DEV_init(&dev->i2c_acc, clock, bus, sa0 ? LSM_ACC_ADDR_SA01 : LSM_ACC_ADDR_SA00);
   I2C_DEV_init(&dev->i2c_mag, clock, bus, LSM_MAG_ADDR);
   I2C_DEV_set_user_data(&dev->i2c_acc, dev);
