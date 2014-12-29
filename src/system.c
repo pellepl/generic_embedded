@@ -114,9 +114,14 @@ time SYS_get_tick() {
 }
 
 static void (*assert_cb)(void) = NULL;
+static assert_behaviour_t assert_behaviour = ASSERT_BLINK_4EVER;
 
 void SYS_set_assert_callback(void (*f)(void)) {
   assert_cb = f;
+}
+
+void SYS_set_assert_behaviour(assert_behaviour_t b) {
+  assert_behaviour = b;
 }
 
 void SYS_assert(const char* file, int line) {
@@ -144,9 +149,14 @@ void SYS_assert(const char* file, int line) {
   IO_tx_flush(IODBG);
   SYS_dump_trace(IODBG);
   IO_tx_flush(IODBG);
+  __asm__ volatile ("bkpt #0\n");
+
+  if (assert_behaviour == ASSERT_RESET) {
+    SYS_reboot(REBOOT_ASSERT);
+  }
+
   const int ASSERT_BLINK = 0x100000;
   volatile int asserted;
-  __asm__ volatile ("bkpt #0\n");
   while (1) {
     asserted = ASSERT_BLINK;
     while (asserted--) {
