@@ -42,8 +42,10 @@ typedef struct {
   int len;
 } strarg;
 
+#ifndef print
 // format prints to console
 void print(const char* f, ...);
+#endif
 // format prints to specified io
 void ioprint(int io, const char* f, ...);
 // format prints to specified string
@@ -56,6 +58,8 @@ void vprint(const char* f, va_list arg_p);
 void vioprint(int io, const char* f, va_list arg_p);
 // prints a neatly formatted data / ascii table of given buffer
 void printbuf(u8_t io, u8_t *buf, u16_t len);
+// primitive used for all printing
+void v_printf(long p, const char* f, va_list arg_p);
 // transforms v to an ascii string in given base
 void itoa(int v, char* dst, int base);
 // transforms v to an ascii string in given base at maximum length

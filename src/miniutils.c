@@ -27,7 +27,7 @@
 
 static void u_itoa(unsigned int v, char* dst, int base, int num, int flags);
 
-static void v_printf(long p, const char* f, va_list arg_p) {
+void v_printf(long p, const char* f, va_list arg_p) {
   register const char* tmp_f = f;
   register const char* start_f = f;
   char c;
@@ -144,12 +144,14 @@ void ioprint(int io, const char* f, ...) {
   va_end(arg_p);
 }
 
+#ifndef print
 void print(const char* f, ...) {
   va_list arg_p;
   va_start(arg_p, f);
   v_printf(IOSTD, f, arg_p);
   va_end(arg_p);
 }
+#endif
 
 void printbuf(u8_t io, u8_t *buf, u16_t len) {
   int i = 0, ix = 0;
