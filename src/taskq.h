@@ -184,5 +184,6 @@ void TASK_wait();
  */
 void TASK_timer();
 void TASK_dump(u8_t io);
+void TASK_dump_pool(u8_t io);
 
 #endif /* TASKQ_H_ */

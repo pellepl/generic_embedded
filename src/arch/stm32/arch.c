@@ -38,6 +38,13 @@ void arch_reset(void) {
   NVIC_SystemReset();
 }
 
+void arch_break_if_dbg(void) {
+  if (CoreDebug->DHCSR & CoreDebug_DHCSR_C_DEBUGEN_Msk) {
+    // if debug is enabled, fire breakpoint
+    __asm__ volatile ("bkpt #0\n");
+  }
+}
+
 void arch_sleep(void) {
   __WFI();
 }

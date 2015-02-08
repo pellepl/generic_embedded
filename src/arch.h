@@ -16,5 +16,6 @@ void irq_enable(void);
 void arch_reset(void);
 void arch_sleep(void);
 void arch_busywait_us(u32_t ns);
+void arch_break_if_dbg(void);
 
 #endif /*_ARCH_H_*/

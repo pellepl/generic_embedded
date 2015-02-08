@@ -98,8 +98,9 @@ void SYS_set_assert_callback(void (*f)(void));
 void SYS_set_assert_behaviour(assert_behaviour_t b);
 void SYS_hardsleep_ms(u32_t ms);
 void SYS_hardsleep_us(u32_t us);
-u32_t SYS_build_number();
-u32_t SYS_build_date();
+u32_t SYS_build_number(void);
+u32_t SYS_build_date(void);
+void SYS_break_if_dbg(void);
 void SYS_dump_trace(u8_t io);
 void SYS_reboot(enum reboot_reason_e);
 

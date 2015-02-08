@@ -124,6 +124,10 @@ void SYS_set_assert_behaviour(assert_behaviour_t b) {
   assert_behaviour = b;
 }
 
+void SYS_break_if_dbg(void) {
+  arch_break_if_dbg();
+}
+
 void SYS_assert(const char* file, int line) {
   irq_disable();
 #ifdef CONFIG_SHARED_MEM
@@ -149,7 +153,8 @@ void SYS_assert(const char* file, int line) {
   IO_tx_flush(IODBG);
   SYS_dump_trace(IODBG);
   IO_tx_flush(IODBG);
-  __asm__ volatile ("bkpt #0\n");
+
+  SYS_break_if_dbg();
 
   if (assert_behaviour == ASSERT_RESET) {
     SYS_reboot(REBOOT_ASSERT);
