@@ -301,3 +301,19 @@ RFILES	+= bootloader.c
 endif
 endif
 
+### CONFIG_GEN_TIMER - generic timer
+
+ifeq (1, $(strip $(CONFIG_GEN_TIMER)))
+FLAGS	+= -DCONFIG_GEN_TIMER
+CFILES	+= gen_timer.c 
+endif
+
+### CONFIG_NRF905 - nrf905 rf module driver
+
+ifeq (1, $(strip $(CONFIG_NRF905)))
+ifneq (1, $(strip $(CONFIG_SPI)))
+$(error "CONFIG_NRF905 depends on CONFIG_SPI")
+endif
+FLAGS	+= -DCONFIG_NRF905
+CFILES	+= nrf905_driver.c
+endif
