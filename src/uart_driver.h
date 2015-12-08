@@ -10,17 +10,15 @@
 
 #include "system.h"
 
+#ifndef UART_RX_BUFFER
 #define UART_RX_BUFFER          512
+#endif
+#ifndef UART_TX_BUFFER
 #define UART_TX_BUFFER          512
-
-#define UART_ALWAYS_SYNC_TX     0
-#define UART_USE_STM_LIB        0
+#endif
 
 #ifndef UART_ALWAYS_SYNC_TX
 #define UART_ALWAYS_SYNC_TX     0
-#endif
-#ifndef UART_USE_STM_LIB
-#define UART_USE_STM_LIB        0
 #endif
 
 typedef void(*uart_rx_callback)(void *arg, u8_t c);

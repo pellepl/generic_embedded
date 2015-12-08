@@ -1,6 +1,10 @@
 #include "uart_driver.h"
 #include "system.h"
 
+#ifndef UART_USE_STM_LIB
+#define UART_USE_STM_LIB        0
+#endif
+
 #define UART_HW(u)      ((USART_TypeDef *)((u)->hw))
 
 #if UART_USE_STM_LIB
