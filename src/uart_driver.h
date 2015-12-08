@@ -9,7 +9,6 @@
 #define UART_H_
 
 #include "system.h"
-#include "taskq.h"
 
 #define UART_RX_BUFFER          512
 #define UART_TX_BUFFER          512
