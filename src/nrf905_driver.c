@@ -5,7 +5,7 @@
  *      Author: petera
  */
 
-#include "../../generic/system/src/nrf905_driver.h"
+#include "nrf905_driver.h"
 
 //#define DBG_STATE(s) print("NRF905DRV: state->%s\n", (s))
 #define DBG_STATE(s)
