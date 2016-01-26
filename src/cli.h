@@ -34,7 +34,7 @@
 #define CLI_PRINTF(fmt, ...)        print(fmt,  ## __VA_ARGS__ )
 
 
-#ifdef CONFIG_CLI
+#ifndef CONFIG_CLI
 #define CLI_EXTERN_MENU(_menusym)
 #define CLI_MENU_START_MAIN
 #define CLI_MENU_START(_menusym)

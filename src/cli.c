@@ -7,7 +7,7 @@
 
 #include "cli.h"
 #include "miniutils.h"
-#include <varargs.h>
+#include <stdarg.h>
 
 #ifndef CONFIG_CLI
 
@@ -26,7 +26,7 @@ static struct
   u32_t arg_ix;
 } _cli;
 
-extern u32_t _variadic_call(void *function_pointer, u32_t nbr_of_args, void *arg_vector);
+extern void * _variadic_call(void *function_pointer, int nbr_of_args, void *arg_vector);
 
 // get the main menu from some file somewhere in linker space...
 CLI_EXTERN_MENU(main)
@@ -214,7 +214,7 @@ static void _cli_exec(void) {
     // substitute func string pointer arg with number of
     // remaining args according to cli_func signature
     _cli.args[arg_ix] = (char *)_cli.arg_ix-1-arg_ix;
-    s32_t res = _variadic_call(exe_cmd->fn, _cli.arg_ix, &_cli.args[arg_ix]);
+    s32_t res = (s32_t)_variadic_call(exe_cmd->fn, _cli.arg_ix, &_cli.args[arg_ix]);
     if (res != CLI_OK) {
       CLI_PRINTF("ERR: %i (0x%08x)\n", res, res);
     }
