@@ -91,6 +91,13 @@ FLAGS	+= -DCONFIG_MINIUTILS
 CFILES 	+= miniutils.c
 endif
 
+### CONFIG_CLI - command line interface
+
+ifeq (1, $(strip $(CONFIG_CLI)))
+FLAGS	+= -DCONFIG_CLI
+CFILES 	+= cli.c
+endif
+
 ### CONFIG_TASK_QUEUE - task queue system
 
 ifeq (1, $(strip $(CONFIG_TASK_QUEUE)))
