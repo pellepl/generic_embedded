@@ -93,9 +93,18 @@ endif
 
 ### CONFIG_CLI - command line interface
 
+CONFIG_CLI_SYS_OFF ?= 0
+CONFIG_CLI_BUS_OFF ?= 0
+
 ifeq (1, $(strip $(CONFIG_CLI)))
 FLAGS	+= -DCONFIG_CLI
 CFILES 	+= cli.c
+ifeq (0, $(strip $(CONFIG_CLI_SYS_OFF)))
+CFILES 	+= cli_system.c
+endif
+ifeq (0, $(strip $(CONFIG_CLI_BUS_OFF)))
+CFILES 	+= cli_bus.c
+endif
 endif
 
 ### CONFIG_TASK_QUEUE - task queue system

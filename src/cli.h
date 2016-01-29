@@ -11,24 +11,40 @@
 #include "system.h"
 
 #define CLI_OK                      0
+#define CLI_ERR_PARAM               -1
 
 // indentation between command and help string
+#ifndef CLI_HELP_INDENT
 #define CLI_HELP_INDENT             32
+#endif
 // maximum tree depth of menus
+#ifndef CLI_MAX_SUBMENU_DEPTH
 #define CLI_MAX_SUBMENU_DEPTH       8
+#endif
 // maximum characters in a command line
+#ifndef CLI_MAX_LINE
 #define CLI_MAX_LINE                512
+#endif
 // maximum arguments in a command line
+#ifndef CLI_MAX_ARGS
 #define CLI_MAX_ARGS                16
+#endif
 
 
 // string of characters that are ignored during parsing
+#ifndef CLI_FORMAT_CHARS_IGNORE
 #define CLI_FORMAT_CHARS_IGNORE     "\r"
-// argument delimiter character
-#define CLI_FORMAT_CHAR_DELIM       ' '
+#endif
+// argument delimiter characters
+#ifndef CLI_FORMAT_CHARS_DELIM
+#define CLI_FORMAT_CHARS_DELIM       " \t"
+#endif
 // command end character
+#ifndef CLI_FORMAT_CHAR_END
 #define CLI_FORMAT_CHAR_END         '\n'
+#endif
 
+#define IS_STRING(s) cli_is_string((s))
 
 // cli output macro
 #define CLI_PRINTF(fmt, ...)        print(fmt,  ## __VA_ARGS__ )
@@ -91,7 +107,10 @@ typedef struct _cli_cmd {
 void cli_init(void);
 
 // pass the cli characters to work with
-void cli_parse(char *s, u32_t len);
+void cli_recv(char *s, u32_t len);
+
+// check if a address is a cli string
+bool cli_is_string(void *s);
 
 // generic cli help function, supposedly used in a CLI_FUNC macro within the main menu
 // Takes zero or more arguments:

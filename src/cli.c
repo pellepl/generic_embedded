@@ -12,17 +12,17 @@
 #ifndef CONFIG_CLI
 
 void cli_init(void) {}
-void cli_parse(char *s, u32_t len) {}
+void cli_recv(char *s, u32_t len) {}
 s32_t cli_help(u32_t args, ...) {return 0;}
+bool cli_is_string(void *s) {return FALSE;}
 
 #else
 
 static struct
 {
-  u32_t arg_sta_ix;
   char line[CLI_MAX_LINE];
   u32_t ix;
-  char *args[CLI_MAX_ARGS];
+  void *args[CLI_MAX_ARGS];
   u32_t arg_ix;
 } _cli;
 
@@ -114,7 +114,27 @@ static void _cli_list_funcs(const cli_cmd *cmd_tbl, bool recurse) {
       cmdlen += visual_sub_level*2;
       s32_t trail = cmdlen >= CLI_HELP_INDENT ? 1 : (CLI_HELP_INDENT-cmdlen);
       indent[trail] = 0;
-      CLI_PRINTF("%c" "%s" "%s" "%s\n", cmd_tbl->type == CLI_SUB ? '>' : ' ', cmd_tbl->name, indent, cmd_tbl->help);
+      CLI_PRINTF("%c" "%s" "%s", cmd_tbl->type == CLI_SUB ? '>' : ' ', cmd_tbl->name, indent);
+
+      {
+        int hdr_len = strpbrk(cmd_tbl->help, "\n") - cmd_tbl->help;
+        if (hdr_len <= 0) {
+          CLI_PRINTF("%s\n", cmd_tbl->help);
+        } else {
+          char tmp[64];
+          int i = 0;
+          while (i < hdr_len) {
+            int r = MIN(hdr_len - i, sizeof(tmp)-1);
+            memcpy(tmp, &cmd_tbl->help[i], r);
+            tmp[r] = 0;
+            CLI_PRINTF("%s", tmp);
+            i += r;
+          }
+          CLI_PRINTF("\n");
+        }
+
+      }
+
       indent[trail] = ' ';
 
       if (cmd_tbl->type == CLI_SUB && recurse) {
@@ -177,11 +197,16 @@ s32_t cli_help(u32_t args,  ...) {
 
 // Scans through arguments until a CLI_FUNC is found
 static void _cli_exec(void) {
+  if (_cli.arg_ix == 0) {
+    CLI_PRINTF("OK\n");
+    return;
+  }
+
   u32_t arg_ix = 0;
   const cli_cmd *exe_cmd = NULL;
   const cli_cmd *cur_cmd = _cli_menu_main;
   do {
-    cur_cmd = _cli_cmd_by_name(cur_cmd, _cli.args[arg_ix]);
+    cur_cmd = _cli_cmd_by_name(cur_cmd, (char *)_cli.args[arg_ix]);
     if (cur_cmd == NULL || cur_cmd->type == CLI_EXTRA) {
       // not found, might be argument or badness
       break;
@@ -205,24 +230,49 @@ static void _cli_exec(void) {
 
   // check and exec
   if (exe_cmd == NULL || exe_cmd->type == CLI_EXTRA) {
-    CLI_PRINTF("ERR: unknown command \"%s\"\n", _cli.args[arg_ix]);
+    CLI_PRINTF("ERR: unknown command \"%s\"\n", (char *)_cli.args[arg_ix]);
   } else if (exe_cmd->type == CLI_SUB) {
-    CLI_PRINTF("ERR: cannot execute menu \"%s\"\n", _cli.args[arg_ix]);
+    CLI_PRINTF("ERR: cannot execute menu \"%s\"\n", (char *)_cli.args[arg_ix]);
     _cli_list_funcs(exe_cmd->submenu, FALSE);
   } else if (exe_cmd->type == CLI_FUNC) {
     // exec func
     // substitute func string pointer arg with number of
     // remaining args according to cli_func signature
-    _cli.args[arg_ix] = (char *)_cli.arg_ix-1-arg_ix;
+    _cli.args[arg_ix] = (void *)_cli.arg_ix-1-arg_ix;
+
     s32_t res = (s32_t)_variadic_call(exe_cmd->fn, _cli.arg_ix, &_cli.args[arg_ix]);
-    if (res != CLI_OK) {
+    if (res == CLI_ERR_PARAM) {
+      CLI_PRINTF("ERR: invalid arguments\n%s\n", exe_cmd->help);
+    }
+    else if (res != CLI_OK) {
       CLI_PRINTF("ERR: %i (0x%08x)\n", res, res);
     }
   }
 }
 
-// Parses some characters
-void cli_parse(char *s, u32_t len) {
+// Parses string and calls execute
+static void _cli_parse(void) {
+  cursor cursor;
+  strarg_init(&cursor, _cli.line, _cli.ix);
+  strarg parsed_arg;
+  while (strarg_next_delim(&cursor, &parsed_arg, CLI_FORMAT_CHARS_DELIM)) {
+    if (_cli.arg_ix >= CLI_MAX_ARGS) {
+      CLI_PRINTF("ERR: too many arguments\n");
+      return;
+    }
+    if (parsed_arg.type == STR) {
+      _cli.args[_cli.arg_ix++] = (void *)parsed_arg.str;
+      parsed_arg.str[parsed_arg.len] = 0;
+    } else if (parsed_arg.type == INT) {
+      _cli.args[_cli.arg_ix++] = (void *)parsed_arg.val;
+    }
+  }
+
+  _cli_exec();
+}
+
+// Buffers characters
+void cli_recv(char *s, u32_t len) {
   u8_t six = 0;
   while (six < len) {
     char c = s[six++];
@@ -234,38 +284,24 @@ void cli_parse(char *s, u32_t len) {
     if (_cli.ix >= CLI_MAX_LINE-1) {
       CLI_PRINTF("ERR: line too long\n");
       memset(&_cli, 0, sizeof(_cli));
+      // flush until end or eol
+      while (six < len && s[six++] != CLI_FORMAT_CHAR_END);
       continue;
     }
-
-    if (c == CLI_FORMAT_CHAR_DELIM || c == CLI_FORMAT_CHAR_END) {
-      if (c == CLI_FORMAT_CHAR_DELIM && _cli.ix == 0) {
-        continue;
-      }
-      // save argument..
-      _cli.args[_cli.arg_ix++] = &_cli.line[_cli.arg_sta_ix];
-      _cli.line[_cli.ix++] = '\0';
-      _cli.arg_sta_ix = _cli.ix;
-
-      if (_cli.arg_ix >= CLI_MAX_ARGS) {
-        CLI_PRINTF("ERR: too many arguments\n");
-        memset(&_cli, 0, sizeof(_cli));
-        continue;
-      }
-
-      if (c == CLI_FORMAT_CHAR_DELIM) {
-        // ..go on with next arg...
-        continue;
-      }
-      else if (c == CLI_FORMAT_CHAR_END) {
-        // .. exec
-        _cli_exec();
-        memset(&_cli, 0, sizeof(_cli));
-        continue;
-      }
+    else if (c == CLI_FORMAT_CHAR_END) {
+      // .. parse and exec
+      _cli_parse();
+      memset(&_cli, 0, sizeof(_cli));
+      continue;
     }
 
     _cli.line[_cli.ix++] = c;
   }
+}
+
+bool cli_is_string(void *s) {
+  char *p = (char *)s;
+  return p >= _cli.line && p < &_cli.line[CLI_MAX_LINE-1];
 }
 
 void cli_init(void) {

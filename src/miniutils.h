@@ -38,6 +38,7 @@ typedef struct {
   union {
     int val;
     char* str;
+    void *_raw;
   };
   int len;
 } strarg;

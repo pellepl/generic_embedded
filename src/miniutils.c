@@ -684,11 +684,15 @@ static void c_strnparse(cursor *c, char str_def) {
 static int _strarg_next(cursor *c, strarg* arg, const char *delim, bool string) {
   if (delim) {
     if (strchr(delim, *c->s)) {
-      arg->type = STR;
-      arg->len = 0;
-      arg->str = 0;
-      c_next(c);
-      return TRUE;
+      do {
+        c_next(c);
+      } while (strchr(delim, *c->s));
+      if (c->len == 0) return FALSE;
+//      arg->type = STR;
+//      arg->len = 0;
+//      arg->str = 0;
+//      c_next(c);
+//      return TRUE;
     }
   } else {
     c_skip_blanks(c);
