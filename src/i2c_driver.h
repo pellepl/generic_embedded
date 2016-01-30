@@ -9,6 +9,7 @@
 #define I2C_DRIVER_H_
 
 #include "system.h"
+#include "taskq.h"
 
 //#define I2C_EV_LOG_DBG
 
@@ -79,6 +80,7 @@ typedef struct i2c_bus_s {
   u32_t log[I2C_EV_LOG_LEN];
   volatile u8_t log_ix;
 #endif
+  task_mutex mutex;
 } i2c_bus;
 
 extern i2c_bus __i2c_bus_vec[I2C_MAX_ID];
