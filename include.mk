@@ -101,9 +101,13 @@ FLAGS	+= -DCONFIG_CLI
 CFILES 	+= cli.c
 ifeq (0, $(strip $(CONFIG_CLI_SYS_OFF)))
 CFILES 	+= cli_system.c
+else
+FLAGS += -DCONFIG_CLI_SYS_OFF
 endif
 ifeq (0, $(strip $(CONFIG_CLI_BUS_OFF)))
 CFILES 	+= cli_bus.c
+else
+FLAGS += -DCONFIG_CLI_BUS_OFF
 endif
 endif
 
@@ -171,6 +175,18 @@ ifeq (1, $(strip $(CONFIG_STMPE811)))
 FLAGS	+= -DCONFIG_STMPE811
 CFILES	+= stmpe811_driver.c
 CFILES	+= stmpe811_handler.c
+endif
+
+#   CONFIG_ADXL345 - i2c accelerometer
+ifeq (1, $(strip $(CONFIG_ADXL345)))
+FLAGS	+= -DCONFIG_ADXL345
+CFILES	+= adxl345_driver.c
+endif
+
+#   CONFIG_HMC5883L - i2c magnetometer
+ifeq (1, $(strip $(CONFIG_HMC5883L)))
+FLAGS	+= -DCONFIG_HMC5883L
+CFILES	+= hmc5883l_driver.c
 endif
 
 endif
