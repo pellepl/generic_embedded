@@ -95,8 +95,10 @@ endif
 
 CONFIG_CLI_SYS_OFF ?= 0
 CONFIG_CLI_BUS_OFF ?= 0
+CONFIG_CLI_DEV_OFF ?= 0
 
 ifeq (1, $(strip $(CONFIG_CLI)))
+
 FLAGS	+= -DCONFIG_CLI
 CFILES 	+= cli.c
 ifeq (0, $(strip $(CONFIG_CLI_SYS_OFF)))
@@ -109,6 +111,12 @@ CFILES 	+= cli_bus.c
 else
 FLAGS += -DCONFIG_CLI_BUS_OFF
 endif
+ifeq (0, $(strip $(CONFIG_CLI_DEV_OFF)))
+CFILES 	+= cli_dev.c
+else
+FLAGS += -DCONFIG_CLI_DEV_OFF
+endif
+
 endif
 
 ### CONFIG_TASK_QUEUE - task queue system
@@ -179,14 +187,22 @@ endif
 
 #   CONFIG_ADXL345 - i2c accelerometer
 ifeq (1, $(strip $(CONFIG_ADXL345)))
+CONFIG_CLI_ADXL345_OFF ?= 0
 FLAGS	+= -DCONFIG_ADXL345
 CFILES	+= adxl345_driver.c
+ifeq (1, $(strip $(CONFIG_CLI_ADXL345_OFF)))
+FLAGS += -DCONFIG_CLI_ADXL345_OFF
+endif
 endif
 
 #   CONFIG_HMC5883L - i2c magnetometer
 ifeq (1, $(strip $(CONFIG_HMC5883L)))
+CONFIG_CLI_HMC5883L_OFF ?= 0
 FLAGS	+= -DCONFIG_HMC5883L
 CFILES	+= hmc5883l_driver.c
+ifeq (1, $(strip $(CONFIG_CLI_HMC5883L_OFF)))
+FLAGS += -DCONFIG_CLI_HMC5883L_OFF
+endif
 endif
 
 endif

@@ -160,3 +160,93 @@ int hmc_drdy(hmc5883l_dev *dev, bool *drdy) {
 }
 
 
+
+
+/////////////////////////////////////////////////////////////////////////// CLI
+
+#ifndef CONFIG_CLI_HMC5883L_OFF
+#include "cli.h"
+#include "miniutils.h"
+
+
+
+static hmc5883l_dev hmc_dev;
+static hmc_reading hmc_data;
+static bool hmc_bool;
+
+static void cli_hmc_cb(hmc5883l_dev *dev, hmc_state state, int res) {
+  if (res < 0) print("hmc_cb err %i\n", res);
+  switch (state) {
+  case HMC5883L_STATE_CONFIG:
+    print("hmc cfg ok\n");
+    break;
+  case HMC5883L_STATE_READ:
+    print("hmc x:%i  y:%i  z:%i\n", hmc_data.x, hmc_data.y, hmc_data.z);
+    break;
+  case HMC5883L_STATE_READ_DRDY:
+    print("hmc drdy: %s\n", hmc_bool ? "TRUE":"FALSE");
+    break;
+  case HMC5883L_STATE_ID:
+    print("hmc id ok: %s\n", hmc_bool ? "TRUE":"FALSE");
+    break;
+  default:
+    print("hmc_cb unknown state %02x\n", state);
+    break;
+  }
+}
+
+static s32_t cli_hmc_open(u32_t argc, u8_t bus, u32_t speed) {
+  if (argc == 1) {
+    speed = 100000;
+  } else if (argc != 2) {
+    return CLI_ERR_PARAM;
+  }
+
+  hmc_open(&hmc_dev, _I2C_BUS(bus), speed, cli_hmc_cb);
+  int res = hmc_check_id(&hmc_dev, &hmc_bool);
+
+  return res;
+}
+
+static s32_t cli_hmc_close(u32_t argc) {
+  hmc_close(&hmc_dev);
+  return CLI_OK;
+}
+
+static s32_t cli_hmc_cfg(u32_t argc) {
+  int res = hmc_config(&hmc_dev,
+      hmc5883l_mode_continuous,
+      hmc5883l_i2c_speed_normal,
+      hmc5883l_gain_1_3,
+      hmc5883l_measurement_mode_normal,
+      hmc5883l_data_output_3,
+      hmc5883l_samples_avg_4);
+  return res;
+}
+
+static s32_t cli_hmc_read(u32_t argc) {
+  int res = hmc_read(&hmc_dev, &hmc_data);
+  return res;
+}
+
+static s32_t cli_hmc_stat(u32_t argc) {
+  int res = hmc_drdy(&hmc_dev, &hmc_bool);
+  return res;
+}
+
+CLI_MENU_START(hmc5883l)
+CLI_FUNC("open", cli_hmc_open, "Opens hmc5883l device\n"
+        "open <bus> (<bus_speed>)\n"
+        "ex: open 0 100000\n")
+CLI_FUNC("close", cli_hmc_close, "Closes hmc5883l device")
+CLI_FUNC("cfg", cli_hmc_cfg, "Configures hmc5883l device\n"
+        "cfg (TODO)\n"
+        "ex: cfg\n")
+CLI_FUNC("rd", cli_hmc_read, "Reads magnetometer values")
+CLI_FUNC("stat", cli_hmc_stat, "Reads hmc5883l data ready status")
+CLI_MENU_END
+
+
+#endif
+
+
