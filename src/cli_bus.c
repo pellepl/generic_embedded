@@ -105,7 +105,14 @@ static void i2c_test_cb(i2c_dev *dev, int result) {
   I2C_DEV_close(&i2c_device);
 }
 
-static int cli_i2c_read(u32_t args, int bus, int addr, int reg) {
+static int cli_i2c_read(u32_t argc, int bus, int addr, int reg) {
+  if (argc != 3) {
+    return CLI_ERR_PARAM;
+  }
+  if (bus < 0 || bus >= I2C_MAX_ID) {
+    return CLI_ERR_PARAM;
+  }
+
   i2c_cli_bus = bus;
   I2C_DEV_init(&i2c_device, 100000, _I2C_BUS(bus), addr);
   I2C_DEV_set_callback(&i2c_device, i2c_test_cb);
@@ -116,7 +123,13 @@ static int cli_i2c_read(u32_t args, int bus, int addr, int reg) {
   return CLI_OK;
 }
 
-static int cli_i2c_write(u32_t args, int bus, int addr, int reg, int data) {
+static int cli_i2c_write(u32_t argc, int bus, int addr, int reg, int data) {
+  if (argc != 4) {
+    return CLI_ERR_PARAM;
+  }
+  if (bus < 0 || bus >= I2C_MAX_ID) {
+    return CLI_ERR_PARAM;
+  }
   i2c_cli_bus = bus;
   I2C_DEV_init(&i2c_device, 100000, _I2C_BUS(bus), addr);
   I2C_DEV_set_callback(&i2c_device, i2c_test_cb);
@@ -180,8 +193,7 @@ static int cli_i2c_scan(u32_t argc, int bus, int speed) {
   if (res != I2C_OK) print("i2c config err %i\n", res);
   res = I2C_set_callback(_I2C_BUS(bus), i2c_scan_cb_irq);
   if (res != I2C_OK) print("i2c cb err %i\n", res);
-  //res = I2C_query(_I2C_BUS(bus), i2c_scan_addr);
-  //if (res != I2C_OK) print("i2c query err %i\n", res);
+
   task *report_scan_task = TASK_create(i2c_scan_report_task, 0);
   TASK_run(report_scan_task, 0, NULL);
 

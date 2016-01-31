@@ -7,6 +7,8 @@
 
 #include "cli.h"
 #include "linker_symaccess.h"
+#include "taskq.h"
+#include "miniutils.h"
 #include <stdarg.h>
 
 #ifdef DBG_OFF
@@ -30,7 +32,6 @@ static int cli_dbg(u32_t argc, ...) {
   enum state {
     NONE, LEVEL, ENABLE, DISABLE
   } st = NONE;
-  int a;
   if (argc == 0) {
     print_debug_setting();
     return 0;
@@ -125,6 +126,7 @@ static int cli_dump_trace(u32_t argc) {
 }
 
 static int cli_memfind(u32_t argc, int hex) {
+  if (argc != 1) return CLI_ERR_PARAM;
   u8_t *addr = (u8_t*)RAM_BEGIN;
   int i;
   print("finding 0x%08x in 0x%08x--0x%08x....\n", hex, RAM_BEGIN, RAM_END);
