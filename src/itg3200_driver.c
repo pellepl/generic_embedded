@@ -171,7 +171,8 @@ static void cli_itg_cb(itg3200_dev *dev, itg_state state, int res) {
     print("itg cfg ok\n");
     break;
   case ITG3200_STATE_READ:
-    print("itg temp:%i  x:%i  y:%i  z:%i\n", itg_data.temp, itg_data.x, itg_data.y, itg_data.z);
+    // temp conv = raw_temp / 280 + 82.142857
+    print("itg temp:%i (%i°C)  x:%i  y:%i  z:%i\n", itg_data.temp, itg_data.temp / 280 + 82, itg_data.x, itg_data.y, itg_data.z);
     break;
   case ITG3200_STATE_READ_INTERRUPTS:
     print("itg int:%s%s\n", itg_sr.data_ready ? " DATA_READY":"", itg_sr.pll_ready ? " PLL_READY":"");

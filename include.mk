@@ -40,11 +40,6 @@ CPATH 	+= ${genprocdir}
 SPATH	+= ${genprocdir}
 INC 	+= -I${genprocdir}
 
-#stmlibdir = ../stm32f4_lib/STM32F4xx_DSP_StdPeriph_Lib_V1.3.0/Libraries
-#stmdriverdir = ${stmlibdir}/STM32F4xx_StdPeriph_Driver
-#stmcmsisdir = ${stmlibdir}/CMSIS/Device/ST/STM32F4xx
-#stmcmsisdircore = ${stmlibdir}/CMSIS/Include
-
 endif
 
 endif
@@ -106,6 +101,8 @@ CONFIG_CLI_DEV_OFF ?= 0
 CONFIG_CLI_GPIO_OFF ?= 0
 CONFIG_CLI_HMC5883L_OFF ?= 0
 CONFIG_CLI_ADXL345_OFF ?= 0
+CONFIG_CLI_M24M01_OFF ?= 0
+CONFIG_CLI_ITG3200_OFF ?= 0
 
 ifeq (1, $(strip $(CONFIG_CLI)))
 
