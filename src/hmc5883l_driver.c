@@ -235,13 +235,13 @@ static s32_t cli_hmc_stat(u32_t argc) {
 }
 
 CLI_MENU_START(hmc5883l)
-CLI_FUNC("open", cli_hmc_open, "Opens hmc5883l device\n"
-        "open <bus> (<bus_speed>)\n"
-        "ex: open 0 100000\n")
-CLI_FUNC("close", cli_hmc_close, "Closes hmc5883l device")
 CLI_FUNC("cfg", cli_hmc_cfg, "Configures hmc5883l device\n"
         "cfg (TODO)\n"
         "ex: cfg\n")
+CLI_FUNC("close", cli_hmc_close, "Closes hmc5883l device")
+CLI_FUNC("open", cli_hmc_open, "Opens hmc5883l device\n"
+        "open <bus> (<bus_speed>)\n"
+        "ex: open 0 100000\n")
 CLI_FUNC("rd", cli_hmc_read, "Reads magnetometer values")
 CLI_FUNC("stat", cli_hmc_stat, "Reads hmc5883l data ready status")
 CLI_MENU_END

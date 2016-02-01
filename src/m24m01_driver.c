@@ -7,6 +7,7 @@
 
 #include "m24m01_driver.h"
 #include "miniutils.h"
+#include <stdarg.h>
 
 /*
  * When M24M01 is busy, it does not ack its address.
@@ -108,17 +109,16 @@ static void m24m01_cb(i2c_dev *idev, int res) {
   }
 }
 
-void m24m01_open(m24m01_dev *dev, i2c_bus *bus, bool e1, bool e2,
+void m24m01_open(m24m01_dev *dev, i2c_bus *bus, bool e1, bool e2, u32_t bus_speed,
     void (*m24m01_callback)(m24m01_dev *dev, int res)) {
   memset(dev, 0, sizeof(m24m01_dev));
   dev->state = M24M01_IDLE;
   dev->callback = m24m01_callback;
-  const u32_t clock = 100000;
   dev->dev_addr = 0b10100000;
   dev->dev_addr |= e2 ? (0b10000) : 0;
   dev->dev_addr |= e1 ? (0b01000) : 0;
-  I2C_DEV_init(&dev->i2c_h, clock, bus, dev->dev_addr | 0b10);
-  I2C_DEV_init(&dev->i2c_l, clock, bus, dev->dev_addr);
+  I2C_DEV_init(&dev->i2c_h, bus_speed, bus, dev->dev_addr | 0b10);
+  I2C_DEV_init(&dev->i2c_l, bus_speed, bus, dev->dev_addr);
   I2C_DEV_set_user_data(&dev->i2c_h, dev);
   I2C_DEV_set_user_data(&dev->i2c_l, dev);
   I2C_DEV_set_callback(&dev->i2c_h, m24m01_cb);
@@ -251,3 +251,105 @@ int m24m01_write(m24m01_dev *dev, u32_t addr, u8_t *buf, u32_t len) {
 
   return res;
 }
+/////////////////////////////////////////////////////////////////////////// CLI
+
+#ifndef CONFIG_CLI_M24M01_OFF
+#include "cli.h"
+#include "miniutils.h"
+
+static m24m01_dev m24_dev;
+static u8_t cli_buf[16];
+static u32_t cli_addr;
+static u32_t cli_len;
+static u32_t cli_oplen;
+static bool r_w;
+
+static void cli_m24_cb(m24m01_dev *dev, int res) {
+  if (res >= 0) {
+    if (r_w) {
+      // read
+      int i;
+      print("0x%08x: ", cli_addr);
+      for (i = 0; i < cli_oplen; i++) {
+        print("%02x ", cli_buf[i]);
+      }
+      print("\n");
+
+      cli_len -= cli_oplen;
+      cli_addr += cli_oplen;
+      if (cli_len > 0) {
+        cli_oplen = MIN(sizeof(cli_buf), cli_len);
+        res = m24m01_read(&m24_dev, cli_addr, cli_buf, cli_oplen);
+      }
+    } else {
+      print("OK\n");
+    }
+  }
+  if (res < 0) {
+    print("m24m01 async err: %i\n", res);
+  }
+}
+
+static s32_t cli_m24_open(u32_t argc, u8_t bus, bool e1, bool e2, u32_t speed) {
+  if (argc == 3) {
+    speed = 100000;
+  } else if (argc != 4) {
+    return CLI_ERR_PARAM;
+  }
+
+  m24m01_open(&m24_dev, _I2C_BUS(bus), e1, e2, speed, cli_m24_cb);
+
+  return CLI_OK;
+}
+
+static s32_t cli_m24_close(u32_t argc) {
+  m24m01_close(&m24_dev);
+  return CLI_OK;
+}
+
+static s32_t cli_m24_rd(u32_t argc, u32_t addr, u32_t len) {
+  if (argc != 2 || IS_STRING((void *)addr) || IS_STRING((void *)len)) return CLI_ERR_PARAM;
+  cli_addr = addr;
+  cli_len = len;
+  cli_oplen = MIN(sizeof(cli_buf), cli_len);
+  r_w = TRUE;
+  int res = m24m01_read(&m24_dev, cli_addr, cli_buf, cli_oplen);
+  return res;
+}
+
+static s32_t cli_m24_wr(u32_t argc, u32_t addr, ...) {
+  if (argc < 2 || IS_STRING((void *)addr)) return CLI_ERR_PARAM;
+  r_w = FALSE;
+
+  va_list va;
+  va_start(va, addr);
+  u32_t len = 0;
+  u32_t i;
+  for (i = 0; i < argc - 1; i++) {
+    int b = va_arg(va, int);
+    cli_buf[len++] = (u8_t)b;
+    if (len >= sizeof(cli_buf)) break;
+  }
+  va_end(va);
+
+  int res = m24m01_write(&m24_dev, addr, cli_buf, len);
+
+  return res;
+}
+
+CLI_MENU_START(m24m01)
+CLI_FUNC("close", cli_m24_close, "Closes m24m01 device")
+CLI_FUNC("open", cli_m24_open, "Opens m24m01 device\n"
+        "open <bus> <e1> <e2> (<bus_speed>)\n"
+        "ex: open 0 0 0 100000\n")
+CLI_FUNC("rd", cli_m24_rd, "Reads m24m01 data\n"
+        "rd <addr> <len>\n")
+CLI_FUNC("wr", cli_m24_wr, "Writes to m24m01 device\n"
+        "wr <addr> (<byte_data>)*\n"
+        "ex: wr 0x1000 0x12 0x34 0x56\n")
+CLI_MENU_END
+
+
+#endif
+
+

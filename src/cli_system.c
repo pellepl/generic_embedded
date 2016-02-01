@@ -152,6 +152,20 @@ static int cli_memfind(u32_t argc, int hex) {
   return CLI_OK;
 }
 
+static int cli_memrd(u32_t argc, u32_t address, u32_t len) {
+  if (argc != 2) return CLI_ERR_PARAM;
+  u8_t *addr = (u8_t*)address;
+  u32_t i;
+  for (i = 0; i < len; i++) {
+    if ((i & 0xf) == 0) {
+      print("\n0x%08x: ", address+i);
+    }
+    print("%02x ", addr[i]);
+  }
+  print("\n");
+  return CLI_OK;
+}
+
 static s32_t cli_reset(u32_t argc) {
   SYS_reboot(REBOOT_USER);
   return CLI_OK;
@@ -169,15 +183,17 @@ static s32_t cli_assert(u32_t argc) {
 }
 
 CLI_MENU_START(system)
+CLI_FUNC("assert", cli_assert, "Asserts")
 CLI_FUNC("dbg", cli_dbg, "Set debug filter and level\n"
     "dbg (level <dbg|info|warn|fatal>) (on [x]*) (off [x]*)\n"
     "x - <sys|app|task|os|heap|comm|cli|nvs|spi|eth|fs|i2c|wifi|web|radio|all>\n"
     "ex: dbg level info off all on app sys\n")
 CLI_FUNC("dump", cli_dump, "Dump system info")
-CLI_FUNC("trace", cli_dump_trace, "Dump system trace")
+CLI_FUNC("hardfault", cli_hardfault, "Hardfaults")
 CLI_FUNC("memfind", cli_memfind, "Find 32 bit hex in memory\n"
     "memfind <value>")
-CLI_FUNC("hardfault", cli_hardfault, "Hardfaults")
-CLI_FUNC("assert", cli_assert, "Asserts")
+    CLI_FUNC("memrd", cli_memrd, "Read from memory\n"
+        "memrd <addr> <len>")
 CLI_FUNC("reset", cli_reset, "Resets processor")
+CLI_FUNC("trace", cli_dump_trace, "Dump system trace")
 CLI_MENU_END

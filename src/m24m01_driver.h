@@ -46,7 +46,7 @@ typedef struct m24m01_dev_s {
 } m24m01_dev;
 
 void m24m01_open(m24m01_dev *dev, i2c_bus *bus, bool e1, bool e2,
-    void (*m24m01_callback)(m24m01_dev *dev, int res));
+    u32_t bus_speed, void (*m24m01_callback)(m24m01_dev *dev, int res));
 void m24m01_close(m24m01_dev *dev);
 int m24m01_read(m24m01_dev *dev, u32_t addr, u8_t *buf, u32_t len);
 int m24m01_write(m24m01_dev *dev, u32_t addr, u8_t *buf, u32_t len);

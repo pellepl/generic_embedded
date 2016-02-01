@@ -96,11 +96,14 @@ endif
 CONFIG_CLI_SYS_OFF ?= 0
 CONFIG_CLI_BUS_OFF ?= 0
 CONFIG_CLI_DEV_OFF ?= 0
+CONFIG_CLI_GPIO_OFF ?= 0
+CONFIG_CLI_HMC5883L_OFF ?= 0
+CONFIG_CLI_ADXL345_OFF ?= 0
 
 ifeq (1, $(strip $(CONFIG_CLI)))
 
 FLAGS	+= -DCONFIG_CLI
-CFILES 	+= cli.c
+CFILES 	+= cli.c cli_common_menu.c
 ifeq (0, $(strip $(CONFIG_CLI_SYS_OFF)))
 CFILES 	+= cli_system.c
 else
@@ -116,6 +119,26 @@ CFILES 	+= cli_dev.c
 else
 FLAGS += -DCONFIG_CLI_DEV_OFF
 endif
+ifeq (1, $(strip $(CONFIG_GPIO)))
+ifeq (0, $(strip $(CONFIG_CLI_GPIO_OFF)))
+CFILES 	+= cli_gpio.c
+else
+FLAGS += -DCONFIG_CLI_GPIO_OFF
+endif
+endif
+ifeq (1, $(strip $(CONFIG_CLI_ADXL345_OFF)))
+FLAGS += -DCONFIG_CLI_ADXL345_OFF
+endif
+ifeq (1, $(strip $(CONFIG_CLI_HMC5883L_OFF)))
+FLAGS += -DCONFIG_CLI_HMC5883L_OFF
+endif
+ifeq (1, $(strip $(CONFIG_CLI_M24M01_OFF)))
+FLAGS += -DCONFIG_CLI_M24M01_OFF
+endif
+ifeq (1, $(strip $(CONFIG_CLI_ITG3200_OFF)))
+FLAGS += -DCONFIG_CLI_ITG3200_OFF
+endif
+
 
 endif
 
@@ -135,7 +158,7 @@ endif
 
 ### CONFIG_GPIO - gpio driver
 
-ifeq (1, $(strip $(CONFIG_RINGBUFFER)))
+ifeq (1, $(strip $(CONFIG_GPIO)))
 FLAGS	+= -DCONFIG_GPIO
 CFILES 	+= gpio_arch.c
 endif
@@ -187,22 +210,20 @@ endif
 
 #   CONFIG_ADXL345 - i2c accelerometer
 ifeq (1, $(strip $(CONFIG_ADXL345)))
-CONFIG_CLI_ADXL345_OFF ?= 0
 FLAGS	+= -DCONFIG_ADXL345
 CFILES	+= adxl345_driver.c
-ifeq (1, $(strip $(CONFIG_CLI_ADXL345_OFF)))
-FLAGS += -DCONFIG_CLI_ADXL345_OFF
-endif
 endif
 
 #   CONFIG_HMC5883L - i2c magnetometer
 ifeq (1, $(strip $(CONFIG_HMC5883L)))
-CONFIG_CLI_HMC5883L_OFF ?= 0
 FLAGS	+= -DCONFIG_HMC5883L
 CFILES	+= hmc5883l_driver.c
-ifeq (1, $(strip $(CONFIG_CLI_HMC5883L_OFF)))
-FLAGS += -DCONFIG_CLI_HMC5883L_OFF
 endif
+
+#   CONFIG_ITG3200 - i2c magnetometer
+ifeq (1, $(strip $(CONFIG_ITG3200)))
+FLAGS	+= -DCONFIG_ITG3200
+CFILES	+= itg3200_driver.c
 endif
 
 endif

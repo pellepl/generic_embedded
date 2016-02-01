@@ -63,16 +63,16 @@ static s32_t cli_uart_conf(u32_t argc, int uart, int speed) {
 
 
 CLI_MENU_START(uart)
-CLI_FUNC("wr", cli_uart_write, "Writes to uart\n"
-        "wr <uart> <string>\n"
-        "ex: wr 2 \"foo\"\n")
+CLI_FUNC("cfg", cli_uart_conf, "Configure uart\n"
+        "cfg <uart> <speed>\n"
+        "ex: cfg 2 9600\n")
 CLI_FUNC("rd", cli_uart_read, "Reads from uart\n"
         "rd <uart> (<numchars>)\n"
         "numchars - number of chars to read, if omitted uart is drained\n"
         "ex: rd 2 10\n")
-CLI_FUNC("cfg", cli_uart_conf, "Configure uart\n"
-        "cfg <uart> <speed>\n"
-        "ex: cfg 2 9600\n")
+CLI_FUNC("wr", cli_uart_write, "Writes to uart\n"
+        "wr <uart> <string>\n"
+        "ex: wr 2 \"foo\"\n")
 CLI_MENU_END
 
 #endif // CONFIG_UART
@@ -217,15 +217,15 @@ CLI_MENU_START(i2c)
 CLI_FUNC("rd", cli_i2c_read, "Reads one byte register from i2c\n"
         "rd <bus> <addr> <register>\n"
         "ex: rd 0 0x41 0x10\n")
-CLI_FUNC("wr", cli_i2c_write, "Writes one byte register to i2c\n"
-        "wr <bus> <addr> <register> <data>\n"
-        "ex: wr 0 0x41 0x10 0x88\n")
-CLI_FUNC("scan", cli_i2c_scan, "Scans i2c bus for devices\n"
-        "scan <bus> (<clk_speed>)\n"
-        "ex: scan 0\n")
 CLI_FUNC("reset", cli_i2c_reset, "Resets i2c bus\n"
         "reset <bus>\n"
         "ex: reset 0\n")
+CLI_FUNC("scan", cli_i2c_scan, "Scans i2c bus for devices\n"
+        "scan <bus> (<clk_speed>)\n"
+        "ex: scan 0\n")
+CLI_FUNC("wr", cli_i2c_write, "Writes one byte register to i2c\n"
+        "wr <bus> <addr> <register> <data>\n"
+        "ex: wr 0 0x41 0x10 0x88\n")
 CLI_MENU_END
 
 #endif // CONFIG_I2C
@@ -234,10 +234,10 @@ CLI_MENU_END
 // main bus menu
 
 CLI_MENU_START(bus)
-#ifdef CONFIG_UART
-CLI_SUBMENU(uart, "uart", "UART submenu")
-#endif
 #if defined(CONFIG_I2C) && defined(CONFIG_I2C_DEVICE)
 CLI_SUBMENU(i2c, "i2c", "I2C submenu")
+#endif
+#ifdef CONFIG_UART
+CLI_SUBMENU(uart, "uart", "UART submenu")
 #endif
 CLI_MENU_END

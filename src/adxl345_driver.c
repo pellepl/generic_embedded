@@ -531,13 +531,13 @@ static s32_t cli_adxl_stat(u32_t argc) {
 }
 
 CLI_MENU_START(adxl345)
-CLI_FUNC("open", cli_adxl_open, "Opens adxl345 device\n"
-        "open <bus> (<bus_speed>)\n"
-        "ex: open 0 100000\n")
-CLI_FUNC("close", cli_adxl_close, "Closes adxl345 device")
 CLI_FUNC("cfg", cli_adxl_cfg, "Configures adxl345 device\n"
         "cfg (TODO)\n"
         "ex: cfg\n")
+CLI_FUNC("close", cli_adxl_close, "Closes adxl345 device")
+CLI_FUNC("open", cli_adxl_open, "Opens adxl345 device\n"
+        "open <bus> (<bus_speed>)\n"
+        "ex: open 0 100000\n")
 CLI_FUNC("rd", cli_adxl_read, "Reads accelerometer values")
 CLI_FUNC("stat", cli_adxl_stat, "Reads adxl345 status")
 CLI_MENU_END
