@@ -91,6 +91,13 @@ FLAGS	+= -DCONFIG_MINIUTILS
 CFILES 	+= miniutils.c
 endif
 
+### CONFIG_WDOG - watchdog
+
+ifeq (1, $(strip $(CONFIG_WDOG)))
+FLAGS	+= -DCONFIG_WDOG
+CFILES 	+= wdog.c
+endif
+
 ### CONFIG_CLI - command line interface
 
 CONFIG_CLI_SYS_OFF ?= 0
