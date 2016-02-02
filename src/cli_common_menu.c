@@ -14,6 +14,9 @@ CLI_EXTERN_MENU(system)
 #if defined(CONFIG_GPIO) && !defined(CONFIG_CLI_GPIO_OFF)
 CLI_EXTERN_MENU(gpio)
 #endif
+#if defined(CONFIG_RTC) && !defined(CONFIG_CLI_RTC_OFF)
+CLI_EXTERN_MENU(rtc)
+#endif
 #ifndef CONFIG_CLI_BUS_OFF
 CLI_EXTERN_MENU(bus)
 #endif
@@ -31,6 +34,9 @@ CLI_SUBMENU(dev, "dev", "SUBMENU: peripheral devices")
 #endif
 #if defined(CONFIG_GPIO) && !defined(CONFIG_CLI_GPIO_OFF)
 CLI_SUBMENU(gpio, "gpio", "SUBMENU: GPIO")
+#endif
+#if defined(CONFIG_RTC) && !defined(CONFIG_CLI_RTC_OFF)
+CLI_SUBMENU(rtc, "rtc", "SUBMENU: RTC")
 #endif
 #ifndef CONFIG_CLI_SYS_OFF
 CLI_SUBMENU(system, "sys", "SUBMENU: system")

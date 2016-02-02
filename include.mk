@@ -99,6 +99,7 @@ CONFIG_CLI_SYS_OFF ?= 0
 CONFIG_CLI_BUS_OFF ?= 0
 CONFIG_CLI_DEV_OFF ?= 0
 CONFIG_CLI_GPIO_OFF ?= 0
+CONFIG_CLI_RTC_OFF ?= 0
 CONFIG_CLI_HMC5883L_OFF ?= 0
 CONFIG_CLI_ADXL345_OFF ?= 0
 CONFIG_CLI_M24M01_OFF ?= 0
@@ -128,6 +129,13 @@ ifeq (0, $(strip $(CONFIG_CLI_GPIO_OFF)))
 CFILES 	+= cli_gpio.c
 else
 FLAGS += -DCONFIG_CLI_GPIO_OFF
+endif
+endif
+ifeq (1, $(strip $(CONFIG_RTC)))
+ifeq (0, $(strip $(CONFIG_CLI_RTC_OFF)))
+CFILES 	+= cli_rtc.c
+else
+FLAGS += -DCONFIG_CLI_RTC_OFF
 endif
 endif
 ifeq (1, $(strip $(CONFIG_CLI_ADXL345_OFF)))
@@ -372,6 +380,13 @@ RFILES	+= bootloader_hal_spi.c
 endif
 RFILES	+= bootloader.c
 endif
+endif
+
+### CONFIG_RTC - rtc driver
+
+ifeq (1, $(strip $(CONFIG_RTC)))
+FLAGS	+= -DCONFIG_RTC
+CFILES	+= rtc_driver.c
 endif
 
 ### CONFIG_GEN_TIMER - generic timer
