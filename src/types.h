@@ -21,7 +21,7 @@ typedef enum {FALSE = 0, TRUE = !FALSE} bool;
 #define S16_MIN    ((s16_t)-32768)
 #define U32_MAX    ((u32_t)4294967295uL)
 #define S32_MAX    ((s32_t)2147483647)
-#define S32_MIN    ((s32_t)-2147483648uL)
+#define S32_MIN    ((s32_t)-2147483648)
 
 #define FALSE       (0)
 #define TRUE        (!FALSE)

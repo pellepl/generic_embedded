@@ -387,6 +387,7 @@ endif
 ifeq (1, $(strip $(CONFIG_RTC)))
 FLAGS	+= -DCONFIG_RTC
 CFILES	+= rtc_driver.c
+CFILES	+= rtc_common.c
 endif
 
 ### CONFIG_GEN_TIMER - generic timer
