@@ -20,6 +20,9 @@
 #if defined(CONFIG_RTC) && defined(CONFIG_SYS_USE_RTC)
 #include "rtc.h"
 #endif
+#ifdef CONFIG_SHARED_MEM
+#include "shared_mem.h"
+#endif
 
 #ifndef DBG_ATTRIBUTE
 #define DBG_ATTRIBUTE
@@ -170,9 +173,6 @@ void SYS_break_if_dbg(void) {
 
 void SYS_assert(const char* file, int line) {
   irq_disable();
-#ifdef CONFIG_SHARED_MEM
-  SHMEM_set_reboot_reason(REBOOT_ASSERT);
-#endif
   if (assert_cb) {
     assert_cb();
   }
@@ -264,6 +264,9 @@ u32_t SYS_build_date() {
 }
 
 __attribute__ (( noreturn )) void SYS_reboot(enum reboot_reason_e r) {
+#ifdef CONFIG_SHARED_MEM
+  SHMEM_set_reboot_reason(r);
+#endif
   arch_reset();
   while (1);
 }
