@@ -9,52 +9,61 @@ INC 	+= -I${gensysdir}/src
 
 ### architectures and processors
 
+# cortex
+ifeq (1, $(strip $(ARCH_CORTEX))) 
+FLAGS	+= -DARCH_CORTEX
+
+archdir = ${gensysdir}/src/arch/cortex
+CPATH 	+= ${archdir}
+SPATH	+= ${archdir}
+INC 	+= -I${archdir}
+
 #   stm32
-ifeq (1, $(strip $(ARCH_STM32)))
-FLAGS	+= -DARCH_STM32
+ifeq (1, $(strip $(PROC_FAMILY_STM32))) 
+FLAGS	+= -DPROC_FAMILY_STM32
 
-genarchdir = ${gensysdir}/src/arch/stm32
-
-CPATH 	+= ${genarchdir}
-SPATH	+= ${genarchdir}
-INC 	+= -I${genarchdir}
-
+procfamilydir = ${archdir}/stm32
+CPATH 	+= ${procfamilydir}
+SPATH	+= ${procfamilydir}
+INC 	+= -I${procfamilydir}
 
 #     stm32f1
 ifeq (1, $(strip $(PROC_STM32F1)))
 FLAGS	+= -DPROC_STM32F1
-
-genprocdir = ${genarchdir}/f1
-
-CPATH 	+= ${genprocdir}
-SPATH	+= ${genprocdir}
-INC 	+= -I${genprocdir}
+FLAGS	+= -DARCH_CORTEX_M1
+procdir = ${procfamilydir}/f1
 endif
 #     stm32f4
 ifeq (1, $(strip $(PROC_STM32F4)))
 FLAGS	+= -DPROC_STM32F4
-
-genprocdir = ${genarchdir}/f4
-
-CPATH 	+= ${genprocdir}
-SPATH	+= ${genprocdir}
-INC 	+= -I${genprocdir}
-
+FLAGS	+= -DARCH_CORTEX_M4
+procdir = ${procfamilydir}/f4
 endif
 
+CPATH 	+= ${procdir}
+SPATH	+= ${procdir}
+INC 	+= -I${procdir}
+
+endif
 endif
 
-### general system files
+### general system files and configs
 
 CFILES	+= arch.c
+CFILES	+= proc_family.c
+CFILES	+= proc_specific.c
 CFILES	+= system.c
 CFILES	+= io.c
+
+ifeq (1, $(strip $(CONFIG_SYS_TIME_64_BIT)))
+FLAGS	+= -DCONFIG_SYS_TIME_64_BIT
+endif
 
 ### CONFIG_MEMOPS - memset, memcpy
 
 ifeq (1, $(strip $(CONFIG_MEMOPS)))
 FLAGS	+= -DCONFIG_MEMOPS
-ifeq (1, $(strip $(ARCH_STM32)))
+ifeq (1, $(strip $(ARCH_CORTEX)))
 SFILES	+= memcpy.s 
 SFILES	+= memset.s 
 endif
@@ -64,7 +73,7 @@ endif
 
 ifeq (1, $(strip $(CONFIG_VARCALL)))
 FLAGS	+= -DCONFIG_VARCALL
-ifeq (1, $(strip $(ARCH_STM32)))
+ifeq (1, $(strip $(ARCH_CORTEX)))
 SFILES	+= variadic.s 
 endif
 endif
@@ -73,7 +82,7 @@ endif
 
 ifeq (1, $(strip $(CONFIG_MATH)))
 FLAGS	+= -DCONFIG_MATH
-ifeq (1, $(strip $(ARCH_STM32)))
+ifeq (1, $(strip $(ARCH_CORTEX)))
 SFILES	+= sqrt.s 
 endif
 CFILES 	+= trig_q.c
@@ -172,7 +181,7 @@ endif
 
 ifeq (1, $(strip $(CONFIG_GPIO)))
 FLAGS	+= -DCONFIG_GPIO
-CFILES 	+= gpio_arch.c
+CFILES 	+= gpio_proc.c
 endif
 
 
@@ -300,8 +309,8 @@ ifeq (1, $(strip $(CONFIG_USB_VCD)))
 FLAGS	+= -DCONFIG_USB_VCD
 
 ifeq (1, $(strip $(PROC_STM32F1)))
-CPATH	+= ${genprocdir}/usb_vcd 
-INC		+= -I./${genprocdir}/usb_vcd
+CPATH	+= ${procdir}/usb_vcd 
+INC		+= -I./${procdir}/usb_vcd
 CFILES	+= usb_core.c
 CFILES	+= usb_init.c
 CFILES	+= usb_int.c
@@ -318,8 +327,8 @@ CFILES	+= usb_pwr.c
 endif
 
 ifeq (1, $(strip $(PROC_STM32F4)))
-CPATH	+= ${genprocdir}/usb_vcd 
-INC		+= -I./${genprocdir}/usb_vcd
+CPATH	+= ${procdir}/usb_vcd 
+INC		+= -I./${procdir}/usb_vcd
 CFILES	+= usb_vcp_impl.c
 CFILES	+= usb_bsp.c usbd_desc.c usbd_usr.c
 
@@ -345,7 +354,7 @@ endif
 
 ifeq (1, $(strip $(CONFIG_OS)))
 FLAGS	+= -DCONFIG_OS
-ifeq (1, $(strip $(ARCH_STM32)))
+ifeq (1, $(strip $(ARCH_CORTEX)))
 CFILES	+= os.c 
 CFILES	+= list.c 
 SFILES	+= svc_handler.s 
@@ -356,7 +365,7 @@ endif
 
 ifeq (1, $(strip $(CONFIG_SHARED_MEM)))
 FLAGS	+= -DCONFIG_SHARED_MEM
-ifeq (1, $(strip $(ARCH_STM32)))
+ifeq (1, $(strip $(ARCH_CORTEX)))
 SFILES	+= linker_symaccess.s 
 endif
 CFILES	+= shared_mem.c
@@ -369,7 +378,7 @@ ifneq (1, $(strip $(CONFIG_SHARED_MEM)))
 $(error "CONFIG_BOOTLOADER depends on CONFIG_SHARED_MEM")
 endif
 FLAGS	+= -DCONFIG_BOOTLOADER
-ifeq (1, $(strip $(ARCH_STM32)))
+ifeq (1, $(strip $(PROC_FAMILY_STM32)))
 RFILES	+= bl_exec.c 
 RFILES	+= bootloader_hal_flash.c 
 ifeq (1, $(strip $(CONFIG_UART)))
@@ -388,6 +397,9 @@ ifeq (1, $(strip $(CONFIG_RTC)))
 FLAGS	+= -DCONFIG_RTC
 CFILES	+= rtc_driver.c
 CFILES	+= rtc_common.c
+ifeq (1, $(strip $(CONFIG_SYS_USE_RTC)))
+FLAGS += -DCONFIG_SYS_USE_RTC
+endif
 endif
 
 ### CONFIG_GEN_TIMER - generic timer

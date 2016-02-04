@@ -37,6 +37,10 @@ typedef sint16_t s16_t;
 typedef uint8_t u8_t;
 typedef sint8_t s8_t;
 
+#ifdef CONFIG_SYS_TIME_64_BIT
+typedef u64_t time;
+#else
 typedef u32_t time;
+#endif
 
 #endif /* __TYPE_H */

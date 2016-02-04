@@ -183,6 +183,10 @@ void TASK_wait();
  * Checks timers and schedules tasks for execution whose wakeup have elapsed.
  */
 void TASK_timer();
+/**
+ * Returns tick for next awaiting timer
+ */
+s32_t TASK_next_wakeup_tick(time *t);
 void TASK_dump(u8_t io);
 void TASK_dump_pool(u8_t io);
 

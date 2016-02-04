@@ -36,7 +36,7 @@ extern void *_variadic_call(void *func, int argc, void* args);
 extern int _sqrt(int);
 #endif
 
-#ifdef ARCH_STM32
+#ifdef PROC_FAMILY_STM32
 typedef GPIO_TypeDef * hw_io_port;
 typedef uint16_t hw_io_pin;
 
@@ -57,7 +57,7 @@ typedef uint16_t hw_io_pin;
 
 #else
 
-#error "undefined processor for arch"
+#error "undefined processor for family"
 
 #endif
 
@@ -74,6 +74,8 @@ typedef enum {
 void SYS_init();
 /**
  * Called from timer irq. Returns TRUE on ms update, FALSE otherwise.
+ * On CONFIG_SYS_USE_RTC, this does not need to be called to keep
+ * the system clock ticking.
  */
 bool SYS_timer();
 /**

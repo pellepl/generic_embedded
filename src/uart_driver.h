@@ -47,21 +47,6 @@ extern uart __uart_vec[CONFIG_UART_CNT];
 
 #define _UART(x) (&__uart_vec[(x)])
 
-#if 0 // TODO PETER REMOVE
-#if UART_MAX_ID > 0
-#define _U_STD (_UART(0))
-#endif
-#if UART_MAX_ID > 1
-#define _U_DBG (_UART(1))
-#endif
-#if UART_MAX_ID > 2
-#define _U_SPL (_UART(2))
-#endif
-#if UART_MAX_ID > 3
-#define _U_BT  (_UART(3))
-#endif
-#endif
-
 typedef enum  {
   UART_DATABITS_8 = 0,
   UART_DATABITS_9 = 9,

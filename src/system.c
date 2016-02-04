@@ -1,4 +1,5 @@
 /*
+
  * system.c
  *
  *  Created on: Jul 22, 2012
@@ -16,9 +17,8 @@
 #ifdef CONFIG_OS
 #include "os.h"
 #endif
-
-#ifdef CONFIG_CNC
-#include "cnc_control.h"
+#if defined(CONFIG_RTC) && defined(CONFIG_SYS_USE_RTC)
+#include "rtc.h"
 #endif
 
 #ifndef DBG_ATTRIBUTE
@@ -40,6 +40,8 @@ const char* __dbg_level_str[4] =
 #endif
 
 static struct {
+#if defined(CONFIG_RTC) && defined(CONFIG_SYS_USE_RTC)
+#else
   volatile time time_tick;
   volatile time time_ms_c;
   volatile time time_sub;
@@ -48,10 +50,17 @@ static struct {
   volatile u8_t time_m;
   volatile u8_t time_h;
   volatile u16_t time_d;
+#endif
 } sys;
 
 bool SYS_timer() {
   bool r = FALSE;
+#if defined(CONFIG_RTC) && defined(CONFIG_SYS_USE_RTC)
+  static u64_t pre_rtc_tick = 0;
+  u64_t rtc_tick = RTC_get_tick();
+  r = RTC_TICK_TO_MS(pre_rtc_tick) != RTC_TICK_TO_MS(rtc_tick);
+  pre_rtc_tick = rtc_tick;
+#else
   sys.time_tick++;
   sys.time_sub++;
   if (sys.time_sub >= SYS_MAIN_TIMER_FREQ / SYS_TIMER_TICK_FREQ) {
@@ -76,6 +85,7 @@ bool SYS_timer() {
       }
     }
   }
+#endif
   return r;
 }
 
@@ -88,29 +98,59 @@ void SYS_init() {
 }
 
 time SYS_get_time_ms() {
+#if defined(CONFIG_RTC) && defined(CONFIG_SYS_USE_RTC)
+  u64_t t = RTC_get_tick();
+  return (time)(RTC_TICK_TO_MS(t));
+#else
   return sys.time_ms_c;
+#endif
 }
 
 void SYS_get_time(u16_t *d, u8_t *h, u8_t *m, u8_t *s, u16_t *ms) {
+#if defined(CONFIG_RTC) && defined(CONFIG_SYS_USE_RTC)
+  rtc_datetime dt;
+  RTC_get_date_time(&dt);
+  if (d) *d = dt.date.year_day;
+  if (h) *h = dt.time.hour;
+  if (m) *h = dt.time.minute;
+  if (ms) *h = dt.time.millisecond;
+#else
   if (d) *d = sys.time_d;
   if (h) *h = sys.time_h;
   if (m) *m = sys.time_m;
   if (s) *s = sys.time_s;
   if (ms) *ms = sys.time_ms;
+#endif
 }
 
 void SYS_set_time(u16_t d, u8_t h, u8_t m, u8_t s, u16_t ms) {
   if (h < 24 && m < 60 && s < 60 && ms < 1000) {
+#if defined(CONFIG_RTC) && defined(CONFIG_SYS_USE_RTC)
+    rtc_datetime dt;
+    RTC_get_date_time(&dt);
+    u64_t dt_sec = RTC_datetime2secs(&dt);
+    dt_sec += (d - dt.date.year_day) * 24ULL * 60ULL * 60ULL +
+              (h - dt.time.hour) * 60ULL * 60ULL +
+              (m - dt.time.minute) * 60ULL +
+              (s - dt.time.second);
+    RTC_secs2datetime(dt_sec, &dt);
+    RTC_set_date_time(&dt);
+#else
     sys.time_d = d;
     sys.time_h = h;
     sys.time_m = m;
     sys.time_s = s;
     sys.time_ms = ms;
+#endif
   }
 }
 
 time SYS_get_tick() {
+#if defined(CONFIG_RTC) && defined(CONFIG_SYS_USE_RTC)
+  return RTC_get_tick();
+#else
   return sys.time_tick;
+#endif
 }
 
 static void (*assert_cb)(void) = NULL;
@@ -136,9 +176,7 @@ void SYS_assert(const char* file, int line) {
   if (assert_cb) {
     assert_cb();
   }
-#ifdef CONFIG_CNC
-  CNC_enable_error(1<<CNC_ERROR_BIT_EMERGENCY);
-#endif
+
   IO_blocking_tx(IODBG, TRUE);
   IO_tx_flush(IODBG);
   ioprint(IODBG, TEXT_BAD("\nASSERT: %s:%i\n"), file, line);
@@ -177,8 +215,13 @@ void SYS_assert(const char* file, int line) {
 }
 
 void SYS_hardsleep_ms(u32_t ms) {
+#if defined(CONFIG_RTC) && defined(CONFIG_SYS_USE_RTC)
+  u64_t tick_release = RTC_get_tick() + RTC_MS_TO_TICK(ms);
+  while (RTC_get_tick() < tick_release);
+#else
   time release = SYS_get_time_ms() + ms;
   while (SYS_get_time_ms() < release);
+#endif
 }
 
 void SYS_hardsleep_us(u32_t us) {

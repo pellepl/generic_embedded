@@ -21,7 +21,7 @@
  * SPI bus
  */
 typedef struct spi_bus_s {
-#ifdef ARCH_STM32
+#ifdef PROC_FAMILY_STM32
   SPI_TypeDef *hw;
 #if defined(PROC_STM32F1)
   DMA_Channel_TypeDef *dma_rx_stream;

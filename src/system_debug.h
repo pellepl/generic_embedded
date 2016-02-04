@@ -222,7 +222,7 @@ bool __trace_set(bool x);
 
 // trace irq definitions
 
-#ifdef ARCH_STM32
+#ifdef PROC_FAMILY_STM32
 
 #ifdef PROC_STM32F1
 
@@ -619,9 +619,9 @@ static const char* const TRACE_IRQ_NAMES[] = {
 #endif /* STM32F427X */
 };
 #endif // PROC_STM32F4
-#else // ARCH_STM32
-#error "undefined arch for trace"
-#endif // ARCH_STM32
+#else // PROC_FAMILY_STM32
+#error "undefined proc family for trace"
+#endif // PROC_FAMILY_STM32
 #else // DBG_TRACE_MON
 #define TRACE_LOG(op, var)
 #define TRACE_LOG_MS(op, var)
@@ -668,7 +668,7 @@ static const char* const TRACE_NAMES[] = {
 
 #define TRACE_MS_TICK(ms)           TRACE_LOG_MS(_TRC_OP_MS_TICK, ms)
 
-#ifdef ARCH_STM32
+#ifdef ARCH_CORTEX
 #define TRACE_IRQ_ENTER(irq)        TRACE_LOG(_TRC_OP_IRQ_ENTER, irq+5)
 #define TRACE_IRQ_EXIT(irq)         TRACE_LOG(_TRC_OP_IRQ_EXIT, irq+5)
 #else
