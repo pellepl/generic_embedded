@@ -25,8 +25,15 @@ do { \
 
 #ifndef DBG_OFF
 
-#define DBG_TIMESTAMP_PREFIX   1
+#ifndef DBG_TIMESTAMP_PREFIX
+#define DBG_TIMESTAMP_PREFIX   0
+#endif
+#ifndef DBG_MS_PREFIX
+#define DBG_MS_PREFIX          0
+#endif
+#ifndef DBG_LEVEL_PREFIX
 #define DBG_LEVEL_PREFIX       0
+#endif
 
 #define _DBG_BIT_NAMES { \
   "sys",\
@@ -174,7 +181,12 @@ extern const char* __dbg_level_str[4];
        if (DBG_TIMESTAMP_PREFIX) { \
          u8_t __hh; u8_t __mm; u8_t __ss; u16_t __mil; \
          SYS_get_time(NULL, &__hh, &__mm, &__ss, &__mil); \
-         print("%02i:%02i:%02i.%03i ", __hh, __mm, __ss, __mil); \
+         print("[%02i:%02i:%02i.%03i] ", __hh, __mm, __ss, __mil); \
+       } \
+       if (DBG_MS_PREFIX) { \
+         u32_t __ms; \
+         __ms = (u32_t)SYS_get_time_ms(); \
+         print("[%+10i] ", __ms); \
        } \
        if (DBG_LEVEL_PREFIX) { DBG_LEVEL_PRINT(level); } \
        print((f), ## __VA_ARGS__); \
