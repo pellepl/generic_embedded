@@ -98,29 +98,27 @@ static void rtc_bkp_set_offs_tick(s64_t tick_offs) {
   bkpwr(CONFIG_STM32F1_BKP_REG_RTCOFLH, (u16_t)(tick_offs>>16));
   bkpwr(CONFIG_STM32F1_BKP_REG_RTCOFLL, (u16_t)(tick_offs>>0));
 }
-
 static void rtc_handle_alarm(void) {
   if (rtc_bkp_is_alarm_enabled()) {
     // user alarm active
     // check that it is the correct cycle
     u64_t cur_tick = RTC_get_tick();
     u64_t alarm_tick = rtc_bkp_get_alarm_tick();
-    if (cur_tick >= alarm_tick) {
-      // user alarm has went off
+    if ((u32_t)(cur_tick >> 32) >= (u32_t)(alarm_tick >> 32)) {
+      // correct cycle, user alarm has went off
       DBG(D_SYS, D_INFO, "RTC: alarm\n");
       if ((alarm_tick & 0xffffffff) == 0) {
-        // the user alarm conincides with rtc cycle, update super cycle counter
+        // the user alarm coincides with rtc cycle, update super cycle counter
         rtc_bkp_set_rtc_cycles(rtc_bkp_get_rtc_cycles() + 1);
-        DBG(D_SYS, D_INFO, "RTC: nxt cycle\n");
       }
       rtc_bkp_set_alarm_enabled(FALSE);
       RTC_SetAlarm(0);
       RTC_WaitForLastTask();
-      // blip
+      // blip user
       if (rtc_cb) rtc_cb();
     } else {
+      // too early cycle
       rtc_bkp_set_rtc_cycles(rtc_bkp_get_rtc_cycles() + 1);
-      DBG(D_SYS, D_INFO, "RTC: nxt cycle\n");
       if ((u32_t)(cur_tick >> 32) == (u32_t)(alarm_tick >> 32)) {
         // the user alarm will go off this rtc cycle, update rtc alarm
         RTC_SetAlarm(alarm_tick && 0xffffffff);
@@ -133,7 +131,6 @@ static void rtc_handle_alarm(void) {
   } else {
     // user alarm inactive, rtc cycle overflow
     rtc_bkp_set_rtc_cycles(rtc_bkp_get_rtc_cycles() + 1);
-    DBG(D_SYS, D_INFO, "RTC: nxt cycle\n");
     RTC_SetAlarm(0);
     RTC_WaitForLastTask();
   }
@@ -150,6 +147,7 @@ void RTC_reset(void) {
 
 
 void RTC_init(rtc_alarm_f alarm_callback) {
+  rtc_cb = alarm_callback;
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR | RCC_APB1Periph_BKP, ENABLE);
   PWR_BackupAccessCmd(ENABLE);
   if (bkprd(CONFIG_STM32F1_BKP_REG_MAGIC) != MAGIC_ALARM_OFF &&
@@ -272,12 +270,11 @@ void RTC_cancel_alarm(void) {
 }
 
 void RTCAlarm_IRQHandler(void) {
-  DBG(D_SYS, D_INFO, "RTC: irq\n");
   if (RTC_GetITStatus(RTC_IT_ALR) != RESET) {
+    DBG(D_SYS, D_INFO, "RTC: irq\n");
     EXTI_ClearITPendingBit(EXTI_Line17);
     RTC_ClearITPendingBit(RTC_IT_ALR);
     RTC_WaitForLastTask();
-    EXTI_ClearITPendingBit(EXTI_Line17);
     rtc_handle_alarm();
   }
 }
