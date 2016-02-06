@@ -216,7 +216,7 @@ void SYS_assert(const char* file, int line) {
 
 void SYS_hardsleep_ms(u32_t ms) {
 #if defined(CONFIG_RTC) && defined(CONFIG_SYS_USE_RTC)
-  u64_t tick_release = RTC_get_tick() + RTC_MS_TO_TICK(ms);
+  u64_t tick_release = RTC_get_tick() + RTC_MS_TO_TICK((u64_t)ms);
   while (RTC_get_tick() < tick_release);
 #else
   time release = SYS_get_time_ms() + ms;

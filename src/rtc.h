@@ -52,7 +52,11 @@ s64_t RTC_year2secs(s64_t year, bool *is_leap);
 u64_t RTC_datetime2secs(const rtc_datetime *tm);
 int RTC_secs2datetime(s64_t t, rtc_datetime *tm);
 
-void RTC_init(rtc_alarm_f alarm_callback);
+/**
+ * Returns true if the rtc was initiated from scratch
+ * or false if it already was running.
+ */
+bool RTC_init(rtc_alarm_f alarm_callback);
 u64_t RTC_get_tick(void);
 void RTC_set_tick(u64_t tick);
 /**

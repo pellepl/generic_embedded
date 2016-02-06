@@ -107,7 +107,8 @@ static void rtc_handle_alarm(void) {
     if ((u32_t)(cur_tick >> 32) >= (u32_t)(alarm_tick >> 32)) {
       // correct cycle, user alarm has went off
       DBG(D_SYS, D_INFO, "RTC: alarm\n");
-      if ((alarm_tick & 0xffffffff) == 0) {
+      bool coincide = (u32_t)alarm_tick == 0;
+      if (coincide) {
         // the user alarm coincides with rtc cycle, update super cycle counter
         rtc_bkp_set_rtc_cycles(rtc_bkp_get_rtc_cycles() + 1);
       }
@@ -146,7 +147,8 @@ void RTC_reset(void) {
 }
 
 
-void RTC_init(rtc_alarm_f alarm_callback) {
+bool RTC_init(rtc_alarm_f alarm_callback) {
+  bool res = FALSE;
   rtc_cb = alarm_callback;
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR | RCC_APB1Periph_BKP, ENABLE);
   PWR_BackupAccessCmd(ENABLE);
@@ -158,6 +160,7 @@ void RTC_init(rtc_alarm_f alarm_callback) {
     rtc_bkp_set_offs_tick(0);
     rtc_bkp_set_alarm_enabled(FALSE);
     bkpwr(CONFIG_STM32F1_BKP_REG_MAGIC, MAGIC_ALARM_OFF);
+    res = TRUE;
   }
 
   rtc_clock rtc_clock = CONFIG_RTC_CLOCK;
@@ -188,6 +191,12 @@ void RTC_init(rtc_alarm_f alarm_callback) {
   RTC_SetPrescaler(CONFIG_RTC_PRESCALER-1);
   RTC_WaitForLastTask();
 
+  if (res) {
+    // to prevent false coincisions(?) @ startup we start counter at 1
+    RTC_SetCounter(1);
+    RTC_WaitForLastTask();
+  }
+
   // do not use anything else than alarm interrupt as it is the only
   // one that can wake us from standby
   EXTI_InitTypeDef exti_cfg;
@@ -202,6 +211,8 @@ void RTC_init(rtc_alarm_f alarm_callback) {
   RTC_WaitForLastTask();
   RTC_ITConfig(RTC_IT_ALR, ENABLE);
   RTC_WaitForLastTask();
+
+  return res;
 }
 
 u64_t RTC_get_tick(void) {
@@ -256,6 +267,8 @@ void RTC_set_alarm(rtc_datetime *datetime) {
 void RTC_set_alarm_tick(u64_t tick) {
   DBG(D_SYS, D_INFO, "RTC set alarm:%08x%08x\n", (u32_t)(tick>>32), (u32_t)tick);
   DBG(D_SYS, D_INFO, "          now:%08x%08x\n", (u32_t)(RTC_get_tick()>>32), (u32_t)(RTC_get_tick()));
+  print("RTC set alarm:%08x%08x\n", (u32_t)(tick>>32), (u32_t)tick);
+  print("          now:%08x%08x\n", (u32_t)(RTC_get_tick()>>32), (u32_t)(RTC_get_tick()));
   rtc_bkp_set_alarm_tick(tick);
   RTC_SetAlarm((u32_t)(tick & 0xffffffff));
   rtc_bkp_set_alarm_enabled(TRUE);
