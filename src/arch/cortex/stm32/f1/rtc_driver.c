@@ -267,8 +267,6 @@ void RTC_set_alarm(rtc_datetime *datetime) {
 void RTC_set_alarm_tick(u64_t tick) {
   DBG(D_SYS, D_INFO, "RTC set alarm:%08x%08x\n", (u32_t)(tick>>32), (u32_t)tick);
   DBG(D_SYS, D_INFO, "          now:%08x%08x\n", (u32_t)(RTC_get_tick()>>32), (u32_t)(RTC_get_tick()));
-  print("RTC set alarm:%08x%08x\n", (u32_t)(tick>>32), (u32_t)tick);
-  print("          now:%08x%08x\n", (u32_t)(RTC_get_tick()>>32), (u32_t)(RTC_get_tick()));
   rtc_bkp_set_alarm_tick(tick);
   RTC_SetAlarm((u32_t)(tick & 0xffffffff));
   rtc_bkp_set_alarm_enabled(TRUE);

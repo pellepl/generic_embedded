@@ -108,20 +108,6 @@ static int cli_rtc_reset(u32_t argc, u32_t seconds) {
   return CLI_OK;
 }
 
-static int cli_rtc_test_calc(u32_t argc, u32_t seconds) {
-  rtc_datetime dt;
-  RTC_secs2datetime(seconds, &dt);
-  print("date: %04i-%02i-%02i time: %02i:%02i:%02i.%03i\n",
-        dt.date.year,
-        dt.date.month+1,
-        dt.date.month_day,
-        dt.time.hour,
-        dt.time.minute,
-        dt.time.second,
-        dt.time.millisecond
-        );
-  return CLI_OK;
-}
 
 CLI_MENU_START(rtc)
 CLI_FUNC("alarm", cli_rtc_alarm, "Set alarm in datetime\n"
@@ -134,5 +120,4 @@ CLI_FUNC("tick", cli_rtc_tick, "Get/set RTC ticks\n"
     "tick (<set_value_hi> <set_value_lo>)\n")
 CLI_FUNC("time", cli_rtc_time, "Get/set RTC time\n"
     "time ((((((<year>) <month>) <day>) <hour>) <minute>) <sec>)\n")
-CLI_FUNC("test", cli_rtc_test_calc, "")
 CLI_MENU_END
