@@ -269,6 +269,7 @@ void RTC_set_alarm_tick(u64_t tick) {
   DBG(D_SYS, D_INFO, "          now:%08x%08x\n", (u32_t)(RTC_get_tick()>>32), (u32_t)(RTC_get_tick()));
   rtc_bkp_set_alarm_tick(tick);
   RTC_SetAlarm((u32_t)(tick & 0xffffffff));
+  RTC_WaitForLastTask();
   rtc_bkp_set_alarm_enabled(TRUE);
 }
 
