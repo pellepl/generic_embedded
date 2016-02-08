@@ -185,9 +185,48 @@ typedef struct {
 #define ADXL345_INT_WATERMARK     0b00000010
 #define ADXL345_INT_OVERRUN       0b00000001
 
+typedef struct {
+  bool pow_low_power;
+  adxl_rate pow_rate;
+  bool pow_link;
+  bool pow_auto_sleep;
+  adxl_mode pow_mode;
+  adxl_sleep pow_sleep;
+
+  adxl_axes tap_ena;
+  u8_t tap_thresh;
+  u8_t tap_dur;
+  u8_t tap_latent;
+  u8_t tap_window;
+  bool tap_suppress;
+
+  adxl_acdc act_ac_dc;
+  adxl_axes act_ena;
+  adxl_axes act_inact_ena;
+  u8_t act_thr_act;
+  u8_t act_thr_inact;
+  u8_t act_time_inact;
+
+  u8_t freefall_thresh;
+  u8_t freefall_time;
+
+  u8_t int_ena;
+  u8_t int_map;
+
+  bool format_int_inv;
+  bool format_full_res;
+  bool format_justify;
+  adxl_range format_range;
+
+  adxl_fifo_mode fifo_mode;
+  adxl_pin_int fifo_trigger;
+  u8_t fifo_samples;
+} adxl_cfg;
+
 typedef struct adxl345_dev_s {
   i2c_dev i2c_dev;
   adxl_state state;
+  bool full_conf;
   void (* callback)(struct adxl345_dev_s *dev, adxl_state state, int res);
   i2c_dev_sequence seq[6];
   union {
@@ -197,13 +236,17 @@ typedef struct adxl345_dev_s {
     adxl_act_tap_status *act_tap_status;
     adxl_status *status;
     u8_t *int_src;
+    adxl_cfg *cfg;
   } arg;
   u8_t tmp_buf[8];
 } adxl345_dev;
 
+
+
 void adxl_open(adxl345_dev *dev, i2c_bus *bus, u32_t clock, void (*adxl_callback)(adxl345_dev *dev, adxl_state state, int res));
 void adxl_close(adxl345_dev *dev);
 int adxl_check_id(adxl345_dev *dev, bool *id_ok);
+int adxl_config(adxl345_dev *dev, adxl_cfg *cfg);
 
 /**
 Configures power related configurations.

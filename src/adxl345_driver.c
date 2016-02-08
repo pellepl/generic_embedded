@@ -12,6 +12,7 @@ static void adxl_cb(i2c_dev *idev, int res) {
   adxl345_dev *dev = (adxl345_dev *)I2C_DEV_get_user_data(idev);
   adxl_state old_state = dev->state;
   if (res != I2C_OK) {
+    dev->full_conf = FALSE;
     dev->state = ADXL345_STATE_IDLE;
     if (dev->callback) dev->callback(dev, old_state, res);
     return;
@@ -19,13 +20,42 @@ static void adxl_cb(i2c_dev *idev, int res) {
 
   switch (dev->state) {
   case ADXL345_STATE_CONFIG_POWER:
+    if (dev->full_conf)
+      res = adxl_config_tap(dev,
+          dev->arg.cfg->tap_ena, dev->arg.cfg->tap_thresh, dev->arg.cfg->tap_dur,
+          dev->arg.cfg->tap_latent, dev->arg.cfg->tap_window, dev->arg.cfg->tap_suppress);
+    break;
   case ADXL345_STATE_SET_OFFSET:
+    break;
   case ADXL345_STATE_CONFIG_TAP:
+    if (dev->full_conf)
+      res = adxl_config_activity(dev,
+          dev->arg.cfg->act_ac_dc, dev->arg.cfg->act_ena, dev->arg.cfg->act_inact_ena,
+          dev->arg.cfg->act_thr_act, dev->arg.cfg->act_thr_inact, dev->arg.cfg->act_time_inact);
+    break;
   case ADXL345_STATE_CONFIG_ACTIVITY:
+    if (dev->full_conf)
+      res = adxl_config_freefall(dev,
+          dev->arg.cfg->freefall_thresh, dev->arg.cfg->freefall_time);
+    break;
   case ADXL345_STATE_CONFIG_FREEFALL:
+    if (dev->full_conf)
+      res = adxl_config_interrupts(dev,
+          dev->arg.cfg->int_ena, dev->arg.cfg->int_map);
+    break;
   case ADXL345_STATE_CONFIG_INTERRUPTS:
+    if (dev->full_conf)
+      res = adxl_config_format(dev,
+          dev->arg.cfg->format_int_inv, dev->arg.cfg->format_full_res, dev->arg.cfg->format_justify,
+          dev->arg.cfg->format_range);
+    break;
   case ADXL345_STATE_CONFIG_FORMAT:
+    if (dev->full_conf)
+      res = adxl_config_fifo(dev,
+          dev->arg.cfg->fifo_mode, dev->arg.cfg->fifo_trigger, dev->arg.cfg->fifo_samples);
+    break;
   case ADXL345_STATE_CONFIG_FIFO:
+    if (dev->full_conf) dev->full_conf = FALSE;
     break;
 
   case ADXL345_STATE_READ:
@@ -75,9 +105,14 @@ static void adxl_cb(i2c_dev *idev, int res) {
     break;
   }
 
-  dev->state = ADXL345_STATE_IDLE;
+  if (!dev->full_conf || res != I2C_OK) {
+    dev->state = ADXL345_STATE_IDLE;
+    dev->full_conf = FALSE;
+  }
 
-  if (dev->callback) dev->callback(dev, old_state, res);
+  if (dev->state == ADXL345_STATE_IDLE) {
+    if (dev->callback) dev->callback(dev, old_state, res);
+  }
 }
 
 void adxl_open(adxl345_dev *dev, i2c_bus *bus, u32_t clock,
@@ -112,6 +147,17 @@ int adxl_check_id(adxl345_dev *dev, bool *id_ok) {
 
   return res;
 }
+
+int adxl_config(adxl345_dev *dev, adxl_cfg *cfg) {
+  if (cfg == NULL) {
+    return I2C_ERR_ADXL345_NULLPTR;
+  }
+
+  dev->full_conf = TRUE;
+  dev->arg.cfg = cfg;
+  return adxl_config_power(dev, cfg->pow_low_power, cfg->pow_rate, cfg->pow_link, cfg->pow_auto_sleep, cfg->pow_mode, cfg->pow_sleep);
+}
+
 
 int adxl_config_power(adxl345_dev *dev,
     bool low_power, adxl_rate rate,
