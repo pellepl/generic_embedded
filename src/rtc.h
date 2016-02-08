@@ -68,6 +68,7 @@ void RTC_set_date_time(rtc_datetime *datetime);
 void RTC_get_date_time(rtc_datetime *datetime);
 void RTC_set_alarm(rtc_datetime *datetime);
 void RTC_set_alarm_tick(u64_t tick);
+u64_t RTC_get_alarm_tick(void);
 void RTC_cancel_alarm(void);
 void RTC_reset(void);
 

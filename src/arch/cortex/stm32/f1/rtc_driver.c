@@ -281,6 +281,10 @@ void RTC_cancel_alarm(void) {
   }
 }
 
+u64_t RTC_get_alarm_tick(void) {
+  return rtc_bkp_get_alarm_tick();
+}
+
 void RTCAlarm_IRQHandler(void) {
   if (RTC_GetITStatus(RTC_IT_ALR) != RESET) {
     DBG(D_SYS, D_INFO, "RTC: irq\n");
