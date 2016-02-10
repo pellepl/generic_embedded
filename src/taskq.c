@@ -613,12 +613,14 @@ static void task_insert_timer(task_timer *timer, time actual_time) {
   }
 }
 
-s32_t TASK_next_wakeup_ms(time *t) {
+s32_t TASK_next_wakeup_ms(time *t, task_timer **timer) {
   task_timer *cur_timer = task_sys.first_timer;
-  if (cur_timer == NULL)
+  if (cur_timer == NULL) {
+    if (timer) *timer = NULL;
     return -1;
+  }
   if (t) *t = cur_timer->start_time;
-
+  if (timer) *timer = cur_timer;
   return 0;
 }
 

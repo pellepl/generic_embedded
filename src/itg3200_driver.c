@@ -65,7 +65,7 @@ void itg_close(itg3200_dev *dev) {
   I2C_DEV_close(&dev->i2c_dev);
 }
 
-int itg_config(itg3200_dev *dev, itg_cfg *cfg) {
+int itg_config(itg3200_dev *dev, const itg_cfg *cfg) {
 
   dev->tmp_buf[0] = ITG3200_R_SMPLRT_DIV;
   dev->tmp_buf[1] = cfg->samplerate_div;
@@ -98,7 +98,7 @@ int itg_config(itg3200_dev *dev, itg_cfg *cfg) {
   return res;
 }
 
-int itg_read(itg3200_dev *dev, itg_reading *data) {
+int itg_read_data(itg3200_dev *dev, itg_reading *data) {
   if (data == NULL) {
     return I2C_ERR_ITG3200_NULLPTR;
   }
@@ -225,7 +225,7 @@ static s32_t cli_itg_cfg(u32_t argc) {
 }
 
 static s32_t cli_itg_read(u32_t argc) {
-  int res = itg_read(&itg_dev, &itg_data);
+  int res = itg_read_data(&itg_dev, &itg_data);
   return res;
 }
 

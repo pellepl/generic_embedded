@@ -177,7 +177,7 @@ extern const char* __dbg_level_str[4];
 #define IF_DBG(mask, level) while (0)
 #else
 #define DBG(mask, level, f, ...) do { \
-     if (((mask) & __dbg_mask) && level >= __dbg_level) { \
+     if (((mask) & __dbg_mask) && (level) >= __dbg_level) { \
        if (DBG_TIMESTAMP_PREFIX) { \
          u8_t __hh; u8_t __mm; u8_t __ss; u16_t __mil; \
          SYS_get_time(NULL, &__hh, &__mm, &__ss, &__mil); \
@@ -192,7 +192,7 @@ extern const char* __dbg_level_str[4];
        print((f), ## __VA_ARGS__); \
      } \
   } while (0)
-#define IF_DBG(mask, level) if (((mask) & __dbg_mask) && level >= __dbg_level)
+#define IF_DBG(mask, level) if (((mask) & __dbg_mask) && (level) >= __dbg_level)
 #endif
 
 

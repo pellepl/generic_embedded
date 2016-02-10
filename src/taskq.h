@@ -186,7 +186,7 @@ void TASK_timer();
 /**
  * Returns ms for nearest awaiting timer
  */
-s32_t TASK_next_wakeup_ms(time *t);
+s32_t TASK_next_wakeup_ms(time *t, task_timer **timer);
 void TASK_dump(u8_t io);
 void TASK_dump_pool(u8_t io);
 

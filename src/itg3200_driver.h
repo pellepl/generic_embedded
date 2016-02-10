@@ -161,7 +161,7 @@ typedef struct itg3200_dev_s {
 void itg_open(itg3200_dev *dev, i2c_bus *bus, bool ad0, u32_t clock, void (*itg_callback)(itg3200_dev *dev, itg_state state, int res));
 void itg_close(itg3200_dev *dev);
 int itg_check_id(itg3200_dev *dev, bool *id_ok);
-int itg_config(itg3200_dev *dev, itg_cfg *cfg);
+int itg_config(itg3200_dev *dev, const itg_cfg *cfg);
 int itg_read_data(itg3200_dev *dev, itg_reading *data);
 int itg_read_interrupts(itg3200_dev *dev, itg_int_status *int_src);
 

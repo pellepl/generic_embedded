@@ -116,12 +116,11 @@ typedef enum {
 } adxl_mode;
 
 typedef enum {
-  ADXL345_SLEEP_OFF = 0b000,
-  ADXL345_SLEEP_RATE_1 = 0b111,
-  ADXL345_SLEEP_RATE_2 = 0b110,
-  ADXL345_SLEEP_RATE_4 = 0b101,
-  ADXL345_SLEEP_RATE_8 = 0b100,
-} adxl_sleep;
+  ADXL345_SLEEP_RATE_1 = 0b11,
+  ADXL345_SLEEP_RATE_2 = 0b10,
+  ADXL345_SLEEP_RATE_4 = 0b01,
+  ADXL345_SLEEP_RATE_8 = 0b00,
+} adxl_sleep_rate;
 
 typedef enum {
   ADXL345_RANGE_2G = 0b00,
@@ -191,7 +190,8 @@ typedef struct {
   bool pow_link;
   bool pow_auto_sleep;
   adxl_mode pow_mode;
-  adxl_sleep pow_sleep;
+  bool pow_sleep;
+  adxl_sleep_rate pow_sleep_rate;
 
   adxl_axes tap_ena;
   u8_t tap_thresh;
@@ -236,7 +236,7 @@ typedef struct adxl345_dev_s {
     adxl_act_tap_status *act_tap_status;
     adxl_status *status;
     u8_t *int_src;
-    adxl_cfg *cfg;
+    const adxl_cfg *cfg;
   } arg;
   u8_t tmp_buf[8];
 } adxl345_dev;
@@ -246,7 +246,7 @@ typedef struct adxl345_dev_s {
 void adxl_open(adxl345_dev *dev, i2c_bus *bus, u32_t clock, void (*adxl_callback)(adxl345_dev *dev, adxl_state state, int res));
 void adxl_close(adxl345_dev *dev);
 int adxl_check_id(adxl345_dev *dev, bool *id_ok);
-int adxl_config(adxl345_dev *dev, adxl_cfg *cfg);
+int adxl_config(adxl345_dev *dev, const adxl_cfg *cfg);
 
 /**
 Configures power related configurations.
@@ -311,11 +311,12 @@ Configures power related configurations.
                   otherwise, the first few samples of data after the sleep mode is
                   cleared may have additional noise, especially if the device was
                   asleep when the bit was cleared.
+@param sleep_rate Samples in sleep mode.
  */
 int adxl_config_power(adxl345_dev *dev,
     bool low_power, adxl_rate rate,
     bool link, bool auto_sleep, adxl_mode mode,
-    adxl_sleep sleep);
+    bool sleep, adxl_sleep_rate sleep_rate);
 
 /**
 Configure offsets.

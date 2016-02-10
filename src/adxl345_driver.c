@@ -148,23 +148,24 @@ int adxl_check_id(adxl345_dev *dev, bool *id_ok) {
   return res;
 }
 
-int adxl_config(adxl345_dev *dev, adxl_cfg *cfg) {
+int adxl_config(adxl345_dev *dev, const adxl_cfg *cfg) {
   if (cfg == NULL) {
     return I2C_ERR_ADXL345_NULLPTR;
   }
 
   dev->full_conf = TRUE;
   dev->arg.cfg = cfg;
-  return adxl_config_power(dev, cfg->pow_low_power, cfg->pow_rate, cfg->pow_link, cfg->pow_auto_sleep, cfg->pow_mode, cfg->pow_sleep);
+  return adxl_config_power(dev, cfg->pow_low_power, cfg->pow_rate, cfg->pow_link,
+      cfg->pow_auto_sleep, cfg->pow_mode, cfg->pow_sleep, cfg->pow_sleep_rate);
 }
 
 
 int adxl_config_power(adxl345_dev *dev,
     bool low_power, adxl_rate rate,
     bool link, bool auto_sleep, adxl_mode mode,
-    adxl_sleep sleep) {
+    bool sleep, adxl_sleep_rate sleep_rate) {
   // ADXL345_R_BW_RATE 0x2c low_power, rate
-  // ADXL345_R_POWER_CTL 0x2d link, auto_sleep, mode
+  // ADXL345_R_POWER_CTL 0x2d link, auto_sleep, mode, sleep, sleep_rate
   dev->tmp_buf[0] = ADXL345_R_BW_RATE;
   dev->tmp_buf[1] = 0 |
       (low_power ? (1<<4) : 0) |
@@ -173,7 +174,8 @@ int adxl_config_power(adxl345_dev *dev,
       (link ? (1<<5) : 0) |
       (auto_sleep ? (1<<4) : 0) |
       (mode<<3) |
-      sleep;
+      (sleep ? (1<<2) : 0) |
+      sleep_rate;
 
   I2C_SEQ_TX_STOP_C(dev->seq[0], &dev->tmp_buf[0], 3);
   dev->state = ADXL345_STATE_CONFIG_POWER;
@@ -527,7 +529,7 @@ static s32_t cli_adxl_cfg(u32_t argc) {
   int res;
 
   adxl_busy = TRUE;
-  res = adxl_config_power(&adxl_dev, FALSE, ADXL345_RATE_12_5_LP, TRUE, FALSE, ADXL345_MODE_MEASURE, ADXL345_SLEEP_OFF);
+  res = adxl_config_power(&adxl_dev, FALSE, ADXL345_RATE_12_5_LP, TRUE, FALSE, ADXL345_MODE_MEASURE, FALSE, ADXL345_SLEEP_RATE_8);
   if (res != 0) return res;
   while (adxl_busy);
 

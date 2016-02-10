@@ -106,7 +106,7 @@ static void rtc_handle_alarm(void) {
     u64_t alarm_tick = rtc_bkp_get_alarm_tick();
     if ((u32_t)(cur_tick >> 32) >= (u32_t)(alarm_tick >> 32)) {
       // correct cycle, user alarm has went off
-      DBG(D_SYS, D_INFO, "RTC: alarm\n");
+      DBG(D_SYS, D_DEBUG, "RTC: alarm\n");
       bool coincide = (u32_t)alarm_tick == 0;
       if (coincide) {
         // the user alarm coincides with rtc cycle, update super cycle counter
@@ -266,7 +266,6 @@ void RTC_set_alarm(rtc_datetime *datetime) {
 
 void RTC_set_alarm_tick(u64_t tick) {
   DBG(D_SYS, D_INFO, "RTC set alarm:%08x%08x\n", (u32_t)(tick>>32), (u32_t)tick);
-  DBG(D_SYS, D_INFO, "          now:%08x%08x\n", (u32_t)(RTC_get_tick()>>32), (u32_t)(RTC_get_tick()));
   rtc_bkp_set_alarm_tick(tick);
   RTC_SetAlarm((u32_t)(tick & 0xffffffff));
   RTC_WaitForLastTask();
@@ -287,7 +286,7 @@ u64_t RTC_get_alarm_tick(void) {
 
 void RTCAlarm_IRQHandler(void) {
   if (RTC_GetITStatus(RTC_IT_ALR) != RESET) {
-    DBG(D_SYS, D_INFO, "RTC: irq\n");
+    DBG(D_SYS, D_DEBUG, "RTC: irq\n");
     EXTI_ClearITPendingBit(EXTI_Line17);
     RTC_ClearITPendingBit(RTC_IT_ALR);
     RTC_WaitForLastTask();
