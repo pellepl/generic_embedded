@@ -14,6 +14,10 @@
 
 #error this is but an example only
 
+
+// enable formatted float printing support
+#define MINIUTILS_PRINT_FLOAT
+
 #define PUTC(p, c)  \
   if ((int)(p) == STDOUT) \
     usb_tx((c)); \

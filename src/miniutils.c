@@ -33,11 +33,16 @@ void v_printf(long p, const char* f, va_list arg_p) {
   char c;
   int format = 0;
   int num = 0;
-  char buf[36];
+#ifdef MINIUTILS_PRINT_FLOAT
+  bool fracspec = FALSE;
+  int fracnum = 5;
+#endif
+  char buf[32*2 + 4];
   int flags = ITOA_FILL_SPACE;
 
   while ((c = *tmp_f++) != 0) {
     if (format) {
+      // formatting
       switch (c) {
       case '%': {
         PUTC(p, '%');
@@ -53,11 +58,20 @@ void v_printf(long p, const char* f, va_list arg_p) {
       case '7':
       case '8':
       case '9':
-        if (c == '0' && num == 0) {
-          flags &= ~ITOA_FILL_SPACE;
+#ifdef MINIUTILS_PRINT_FLOAT
+        if (!fracspec) {
+#endif
+          if (c == '0' && num == 0) {
+            flags &= ~ITOA_FILL_SPACE;
+          }
+          num = num * 10 + (c - '0');
+          num = MIN(sizeof(buf)/2-1, num);
+#ifdef MINIUTILS_PRINT_FLOAT
+        } else {
+          fracnum = fracnum * 10 + (c - '0');
+          fracnum = MIN(sizeof(buf)/2-1, fracnum);
         }
-        num = num * 10 + (c - '0');
-        num = MIN(sizeof(buf)-1, num);
+#endif
         continue;
       case '+':
         flags |= ITOA_FORCE_SIGN;
@@ -65,6 +79,12 @@ void v_printf(long p, const char* f, va_list arg_p) {
       case '#':
         flags |= ITOA_BASE_SIG;
         continue;
+#ifdef MINIUTILS_PRINT_FLOAT
+      case '.':
+        fracspec = TRUE;
+        fracnum = 0;
+        continue;
+#endif
       case 'd':
       case 'i': {
         int v = va_arg(arg_p, int);
@@ -81,8 +101,25 @@ void v_printf(long p, const char* f, va_list arg_p) {
         PUTB(p, &buf[0], strlen(&buf[0]));
         break;
       }
+#ifdef MINIUTILS_PRINT_FLOAT
+      case 'f': {
+        double v = va_arg(arg_p, double);
+        if (v < 0) {
+          v = -v;
+          flags |= ITOA_NEGATE;
+        }
+        u_itoa((int)v, &buf[0], 10, num, flags);
+        int c = strlen(&buf[0]);
+        buf[c] = '.';
+        int mul = 1, i;
+        for (i = 0; i < fracnum; i++) mul *= 10;
+        u_itoa((int)(v * mul) - (int)(v), &buf[c+1], 10, fracnum, 0);
+        PUTB(p, &buf[0], strlen(&buf[0]));
+        break;
+      }
+#endif
       case 'p': {
-        u_itoa(va_arg(arg_p, int), &buf[0], 16, 8, flags);
+        u_itoa(va_arg(arg_p, int), &buf[0], 16, sizeof(void *)*2, flags);
         PUTB(p, &buf[0], strlen(&buf[0]));
         break;
       }
@@ -122,6 +159,7 @@ void v_printf(long p, const char* f, va_list arg_p) {
       start_f = tmp_f;
       format = 0;
     } else {
+      // not formatting
       if (c == '%') {
         if (tmp_f > start_f + 1) {
           PUTB(p, start_f, (int)(tmp_f - start_f - 1));
@@ -129,9 +167,14 @@ void v_printf(long p, const char* f, va_list arg_p) {
         num = 0;
         format = 1;
         flags = ITOA_FILL_SPACE;
+#ifdef MINIUTILS_PRINT_FLOAT
+        fracspec = FALSE;
+        fracnum = 5;
+#endif
+
       }
     }
-  }
+  } // while string
   if (tmp_f > start_f + 1) {
     PUTB(p, start_f, (int)(tmp_f - start_f - 1));
   }
