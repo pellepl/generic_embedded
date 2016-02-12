@@ -25,7 +25,15 @@
 // generates string ascii as captials
 #define ITOA_CAPITALS           (1<<__ITOA_CAPITALS_B)
 
-static void u_itoa(unsigned int v, char* dst, int base, int num, int flags);
+#ifdef MINIUTILS_PRINT_LONGLONG
+typedef unsigned long long utype_t;
+typedef signed long long stype_t;
+#else
+typedef unsigned int utype_t;
+typedef signed int stype_t;
+#endif
+
+static void u_itoa(utype_t v, char* dst, int base, int num, int flags);
 
 #ifdef MINIUTILS_PRINT_LONGLONG
 typedef unsigned long long utype_t;
@@ -278,7 +286,7 @@ void vsprint(char *s, const char* f, va_list arg_p) {
 static const char *I_BASE_ARR_L = "0123456789abcdefghijklmnopqrstuvwxyz";
 static const char *I_BASE_ARR_U = "0123456789ABCDEFGHIJKLMNOPQRTSUVWXYZ";
 
-static void u_itoa(unsigned int v, char* dst, int base, int num, int flags) {
+static void u_itoa(utype_t v, char* dst, int base, int num, int flags) {
   // check that the base if valid
   if (base < 2 || base > 36) {
     if ((flags & ITOA_NO_ZERO_END) == 0) {
@@ -289,7 +297,7 @@ static void u_itoa(unsigned int v, char* dst, int base, int num, int flags) {
 
   const char *arr = (flags & ITOA_CAPITALS) ? I_BASE_ARR_U : I_BASE_ARR_L;
   char* ptr = dst, *ptr_o = dst, tmp_char;
-  int tmp_value;
+  utype_t tmp_value;
   int ix = 0;
   char zero_char = flags & ITOA_FILL_SPACE ? ' ' : '0';
   do {
