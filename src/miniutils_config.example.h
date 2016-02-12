@@ -17,6 +17,8 @@
 
 // enable formatted float printing support
 #define MINIUTILS_PRINT_FLOAT
+// enable formatted longlong printing support
+#define MINIUTILS_PRINT_LONGLONG
 
 #define PUTC(p, c)  \
   if ((int)(p) == STDOUT) \

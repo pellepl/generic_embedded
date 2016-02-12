@@ -27,6 +27,14 @@
 
 static void u_itoa(unsigned int v, char* dst, int base, int num, int flags);
 
+#ifdef MINIUTILS_PRINT_LONGLONG
+typedef unsigned long long utype_t;
+typedef signed long long stype_t;
+#else
+typedef unsigned int utype_t;
+typedef signed int stype_t;
+#endif
+
 void v_printf(long p, const char* f, va_list arg_p) {
   register const char* tmp_f = f;
   register const char* start_f = f;
@@ -37,6 +45,7 @@ void v_printf(long p, const char* f, va_list arg_p) {
   bool fracspec = FALSE;
   int fracnum = 5;
 #endif
+  int lcnt = 0;
   char buf[32*2 + 4];
   int flags = ITOA_FILL_SPACE;
 
@@ -85,9 +94,20 @@ void v_printf(long p, const char* f, va_list arg_p) {
         fracnum = 0;
         continue;
 #endif
+#ifdef MINIUTILS_PRINT_LONGLONG
+      case 'l':
+        lcnt++;
+        continue;
+#endif
+
+
       case 'd':
       case 'i': {
-        int v = va_arg(arg_p, int);
+        stype_t v;
+        if (lcnt)
+          v = va_arg(arg_p, stype_t);
+        else
+          v = va_arg(arg_p, int);
         if (v < 0) {
           v = -v;
           flags |= ITOA_NEGATE;
@@ -97,7 +117,12 @@ void v_printf(long p, const char* f, va_list arg_p) {
         break;
       }
       case 'u': {
-        u_itoa(va_arg(arg_p, unsigned int), &buf[0], 10, num, flags);
+        utype_t v;
+        if (lcnt)
+          v = va_arg(arg_p, utype_t);
+        else
+          v = va_arg(arg_p, unsigned int);
+        u_itoa(v, &buf[0], 10, num, flags);
         PUTB(p, &buf[0], strlen(&buf[0]));
         break;
       }
@@ -128,17 +153,32 @@ void v_printf(long p, const char* f, va_list arg_p) {
         // fall through
         //no break
       case 'x': {
-        u_itoa(va_arg(arg_p, int), &buf[0], 16, num, flags);
+        stype_t v;
+        if (lcnt)
+          v = va_arg(arg_p, stype_t);
+        else
+          v = va_arg(arg_p, int);
+        u_itoa(v, &buf[0], 16, num, flags);
         PUTB(p, &buf[0], strlen(&buf[0]));
         break;
       }
       case 'o': {
-        u_itoa(va_arg(arg_p, int), &buf[0], 8, num, flags);
+        stype_t v;
+        if (lcnt)
+          v = va_arg(arg_p, stype_t);
+        else
+          v = va_arg(arg_p, int);
+        u_itoa(v, &buf[0], 8, num, flags);
         PUTB(p, &buf[0], strlen(&buf[0]));
         break;
       }
       case 'b': {
-        u_itoa(va_arg(arg_p, int), &buf[0], 2, num, flags);
+        stype_t v;
+        if (lcnt)
+          v = va_arg(arg_p, stype_t);
+        else
+          v = va_arg(arg_p, int);
+        u_itoa(v, &buf[0], 2, num, flags);
         PUTB(p, &buf[0], strlen(&buf[0]));
         break;
       }
@@ -171,7 +211,9 @@ void v_printf(long p, const char* f, va_list arg_p) {
         fracspec = FALSE;
         fracnum = 5;
 #endif
-
+#ifdef MINIUTILS_PRINT_LONGLONG
+        lcnt = 0;
+#endif
       }
     }
   } // while string
