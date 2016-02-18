@@ -45,9 +45,9 @@ const char* __dbg_level_str[4] =
 static struct {
 #if defined(CONFIG_RTC) && defined(CONFIG_SYS_USE_RTC)
 #else
-  volatile time time_tick;
-  volatile time time_ms_c;
-  volatile time time_sub;
+  volatile sys_time time_tick;
+  volatile sys_time time_ms_c;
+  volatile sys_time time_sub;
   volatile u16_t time_ms;
   volatile u8_t time_s;
   volatile u8_t time_m;
@@ -100,10 +100,10 @@ void SYS_init() {
 #endif
 }
 
-time SYS_get_time_ms() {
+sys_time SYS_get_time_ms() {
 #if defined(CONFIG_RTC) && defined(CONFIG_SYS_USE_RTC)
   u64_t t = RTC_get_tick();
-  return (time)(RTC_TICK_TO_MS(t));
+  return (sys_time)(RTC_TICK_TO_MS(t));
 #else
   return sys.time_ms_c;
 #endif
@@ -148,7 +148,7 @@ void SYS_set_time(u16_t d, u8_t h, u8_t m, u8_t s, u16_t ms) {
   }
 }
 
-time SYS_get_tick() {
+sys_time SYS_get_tick() {
 #if defined(CONFIG_RTC) && defined(CONFIG_SYS_USE_RTC)
   return RTC_get_tick();
 #else

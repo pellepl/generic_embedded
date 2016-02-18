@@ -40,7 +40,7 @@ static volatile u8_t _crit = 0;
 
 volatile static u8_t _g_timer_ix = 0;
 
-static void task_insert_timer(task_timer *timer, time actual_time);
+static void task_insert_timer(task_timer *timer, sys_time actual_time);
 
 static void print_task(u8_t io, task *t, const char *prefix) {
   if (t) {
@@ -66,7 +66,7 @@ static void print_task(u8_t io, task *t, const char *prefix) {
   }
 }
 
-static void print_timer(u8_t io, task_timer *t, const char *prefix, time now) {
+static void print_timer(u8_t io, task_timer *t, const char *prefix, sys_time now) {
   if (t) {
     ioprint(io, "%s %s  start:%08x (%+08x)  recurrent:%08x  next:%08x  [%s]\n",
         prefix,
@@ -135,7 +135,7 @@ void TASK_dump(u8_t io) {
   p = (char*)strchr(lst2, '_');
   task_timer* tt = task_sys.first_timer;
   ix = 1;
-  time now = SYS_get_time_ms();
+  sys_time now = SYS_get_time_ms();
   while (tt) {
     sprint(p, "%02i", ix++);
     print_timer(io, tt, lst2, now);
@@ -251,7 +251,7 @@ void TASK_run(task* task, u32_t arg, void* arg_p) {
   exit_critical();
 }
 
-void TASK_start_timer(task *task, task_timer* timer, u32_t arg, void *arg_p, time start_time, time recurrent_time,
+void TASK_start_timer(task *task, task_timer* timer, u32_t arg, void *arg_p, sys_time start_time, sys_time recurrent_time,
     const char *name) {
 #ifndef CONFIG_TASK_NONCRITICAL_TIMER
   enter_critical();
@@ -275,7 +275,7 @@ void TASK_start_timer(task *task, task_timer* timer, u32_t arg, void *arg_p, tim
 #endif
 }
 
-void TASK_set_timer_recurrence(task_timer* timer, time recurrent_time) {
+void TASK_set_timer_recurrence(task_timer* timer, sys_time recurrent_time) {
   timer->recurrent_time = recurrent_time;
 }
 
@@ -580,7 +580,7 @@ void TASK_mutex_unlock(task_mutex *m) {
 #endif // CONFIG_TASKQ_MUTEX
 
 
-static void task_insert_timer(task_timer *timer, time actual_time) {
+static void task_insert_timer(task_timer *timer, sys_time actual_time) {
   timer->start_time = actual_time;
 
   if (task_sys.first_timer == 0) {
@@ -613,7 +613,7 @@ static void task_insert_timer(task_timer *timer, time actual_time) {
   }
 }
 
-s32_t TASK_next_wakeup_ms(time *t, task_timer **timer) {
+s32_t TASK_next_wakeup_ms(sys_time *t, task_timer **timer) {
   task_timer *cur_timer = task_sys.first_timer;
   if (cur_timer == NULL) {
     if (timer) *timer = NULL;

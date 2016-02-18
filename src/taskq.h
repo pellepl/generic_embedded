@@ -54,8 +54,8 @@ typedef struct task_s {
 typedef struct task_timer_s {
   u8_t _ix;
   task *task;
-  time start_time;
-  time recurrent_time;
+  sys_time start_time;
+  sys_time recurrent_time;
   u32_t arg;
   void* arg_p;
   bool alive;
@@ -126,14 +126,14 @@ u8_t TASK_is_running(task* t);
  * @param start_time the delta time from now to schedule task
  * @param recurrent_time the delta time of recurrence, or 0 for no recurrence
  */
-void TASK_start_timer(task *task, task_timer* timer, u32_t arg, void *arg_p, time start_time, time recurrent_time,
+void TASK_start_timer(task *task, task_timer* timer, u32_t arg, void *arg_p, sys_time start_time, sys_time recurrent_time,
     const char *name);
 /**
  * Reschedules given timer for new recurrent time.
  * New reschedule time won't be effective until timer has been executed after
  * this invocation
  */
-void TASK_set_timer_recurrence(task_timer* timer, time recurrent_time);
+void TASK_set_timer_recurrence(task_timer* timer, sys_time recurrent_time);
 /**
  * Kills of given timer
  */
@@ -186,7 +186,7 @@ void TASK_timer();
 /**
  * Returns ms for nearest awaiting timer
  */
-s32_t TASK_next_wakeup_ms(time *t, task_timer **timer);
+s32_t TASK_next_wakeup_ms(sys_time *t, task_timer **timer);
 void TASK_dump(u8_t io);
 void TASK_dump_pool(u8_t io);
 

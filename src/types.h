@@ -38,9 +38,9 @@ typedef uint8_t u8_t;
 typedef sint8_t s8_t;
 
 #ifdef CONFIG_SYS_TIME_64_BIT
-typedef u64_t time;
+typedef u64_t sys_time;
 #else
-typedef u32_t time;
+typedef u32_t sys_time;
 #endif
 
 #endif /* __TYPE_H */

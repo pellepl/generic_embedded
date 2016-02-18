@@ -81,11 +81,11 @@ bool SYS_timer();
 /**
  * Get milliseconds since system clock start
  */
-time SYS_get_time_ms();
+sys_time SYS_get_time_ms();
 /**
  * Get ticks since system clock start
  */
-time SYS_get_tick();
+sys_time SYS_get_tick();
 /**
  * Get current system time
  */
