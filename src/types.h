@@ -1,10 +1,10 @@
 #ifndef __TYPE_H
 #define __TYPE_H
 
-typedef signed long long sint64_t;
-typedef signed long  sint32_t;
-typedef signed short sint16_t;
-typedef signed char  sint8_t;
+typedef signed long long int64_t;
+typedef signed long  int32_t;
+typedef signed short int16_t;
+typedef signed char  int8_t;
 
 typedef unsigned long long uint64_t;
 typedef unsigned long  uint32_t;
@@ -29,13 +29,13 @@ typedef enum {FALSE = 0, TRUE = !FALSE} bool;
 #define NULL        ((void*)0)
 
 typedef uint64_t u64_t;
-typedef sint64_t s64_t;
+typedef int64_t s64_t;
 typedef uint32_t u32_t;
-typedef sint32_t s32_t;
+typedef int32_t s32_t;
 typedef uint16_t u16_t;
-typedef sint16_t s16_t;
+typedef int16_t s16_t;
 typedef uint8_t u8_t;
-typedef sint8_t s8_t;
+typedef int8_t s8_t;
 
 #ifdef CONFIG_SYS_TIME_64_BIT
 typedef u64_t sys_time;
