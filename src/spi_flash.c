@@ -9,7 +9,7 @@
 #include "spi_dev.h"
 #include "taskq.h"
 #include "miniutils.h"
-#include "led.h"
+//#include "led.h"
 
 #ifdef CONFIG_SPI
 
@@ -17,14 +17,14 @@ static int spi_flash_send_write_sequence(spi_flash_dev *sfd);
 static int spi_flash_send_erase_sequence(spi_flash_dev *sfd);
 
 static int spi_flash_exec(spi_flash_dev *sfd, spi_dev_sequence *seq, u8_t seq_len) {
-  LED_blink_single(LED_SPI_FLASH_BIT, 2,1, LED_BLINK_FOREVER);
+  //LED_blink_single(LED_SPI_FLASH_BIT, 2,1, LED_BLINK_FOREVER);
   return SPI_DEV_sequence(&sfd->dev, seq, seq_len);
 }
 
 static void spi_flash_finalize(spi_flash_dev *sfd, int res) {
-  LED_blink_single(LED_SPI_FLASH_BIT, 2,1,2);
+  //LED_blink_single(LED_SPI_FLASH_BIT, 2,1,2);
   if (res != SPI_OK) {
-    LED_blink_single(LED_ERROR1_BIT, 6, 4, 5);
+    //LED_blink_single(LED_ERROR1_BIT, 6, 4, 5);
   }
   sfd->busy = FALSE;
   if (sfd->spi_flash_callback) {
