@@ -78,14 +78,25 @@ typedef struct os_cond_t {
     ((x) < RAM_BEGIN || (x) > RAM_END)
 #endif
 
+typedef enum {
+  // a wakeup time was returned
+  OS_WUP_SLEEP = 0,
+  // bot running and sleeping threads, a wakeup time was returned
+  OS_WUP_SLEEP_RUNNING,
+  // no wakeup time returned, there are running threads
+  OS_WUP_RUNNING,
+  // no wakeup time returned, no running threads, and none awaiting to be awakened
+  OS_WUP_SLEEP_FOREVER
+} os_wakeup_res;
+
 u32_t OS_thread_create(os_thread *t, u32_t flags, void *(*func)(void *), void *arg, void *stack, u32_t stack_size, const char *name);
 u32_t OS_thread_id(os_thread *t);
-os_thread *OS_thread_self();
-u32_t OS_thread_self_id();
+os_thread *OS_thread_self(void);
+u32_t OS_thread_self_id(void);
 u32_t OS_thread_yield(void);
 void OS_thread_join(os_thread *t);
 
-void OS_thread_sleep(time t);
+void OS_thread_sleep(sys_time t);
 
 u32_t OS_mutex_init(os_mutex *m, u32_t attrs);
 u32_t OS_mutex_lock(os_mutex *m);
@@ -94,20 +105,16 @@ bool OS_mutex_try_lock(os_mutex *m);
 
 u32_t OS_cond_init(os_cond *c);
 u32_t OS_cond_wait(os_cond *c, os_mutex *m);
-u32_t OS_cond_timed_wait(os_cond *c, os_mutex *m, time t);
+u32_t OS_cond_timed_wait(os_cond *c, os_mutex *m, sys_time t);
 u32_t OS_cond_signal(os_cond *c);
 u32_t OS_cond_broadcast(os_cond *c);
 
-void OS_svc_0(void *arg, ...);
-void OS_svc_1(void *arg, ...);
-void OS_svc_2(void *arg, ...);
-void OS_svc_3(void *arg, ...);
+os_wakeup_res OS_get_next_wakeup(sys_time *next_wakeup);
+u32_t OS_get_running_threads(void);
+void OS_force_ctx_switch(void);
 
 void OS_init(void);
-
-void __os_systick(void);
-void __os_pendsv(void);
-void __os_time_tick(time now);
+void OS_time_tick(sys_time now);
 
 os_thread *OS_DBG_get_thread_by_id(u32_t id);
 

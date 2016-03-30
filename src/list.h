@@ -7,7 +7,7 @@
 
 #include "system.h"
 
-typedef time list_sort_order;
+typedef sys_time list_sort_order;
 
 /**
  * A list element representation

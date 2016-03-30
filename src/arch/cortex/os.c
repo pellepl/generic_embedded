@@ -3,11 +3,41 @@
 #include "list.h"
 #include "linker_symaccess.h"
 #include "os_hal.h"
+#if CONFIG_OS_TASKQ_KERNEL
+#include "taskq.h"
+#endif
+
+// configs
+
+// will schedule a signalled thread first
+//#define CONFIG_OS_BUMP 1
+
+// will use taskq as kernel, not being in a thread
+//#define CONFIG_OS_TASKQ_KERNEL 1
+
+// checks os struct memory overwrites at certain points
+//#define OS_RUNTIME_VALIDITY_CHECK 1
+
+// enables debug dump printouts of os status
+//#define OS_DBG_MON 1
+// if OS_DBG_MON, enables logging of up to x created threads
+//#define OS_THREAD_PEERS 4
+// if OS_DBG_MON, enables logging of up to x created mutexes
+//#define OS_MUTEX_PEERS 4
+// if OS_DBG_MON, enables logging of up to x created conditionals
+//#define OS_COND_PEERS 4
+
+// enables thread stack checks, checked when entering and leaving threads
+//#define OS_STACK_CHECK 1
+
+// makes the scheduler calculate percentage of used stack for threads on debug dump
+//#define OS_STACK_USAGE_CHECK 1
+
+
 
 #define OS_THREAD_FLAG_ALIVE        (1<<0)
 #define OS_THREAD_FLAG_SLEEP        (1<<1)
-#define OS_SVC_YIELD                (0x00010000)
-#define OS_FOREVER                  ((time)-1)
+#define OS_FOREVER                  ((sys_time)-1)
 #define OS_STACK_START_MARKER       (0xf00dcafe)
 #define OS_STACK_END_MARKER         (0xfadebeef)
 
@@ -19,6 +49,16 @@
 
 #define _STACK_USAGE_MARK (0xea)
 #define _STACK_USAGE_MARK_32 ((_STACK_USAGE_MARK << 24) | (_STACK_USAGE_MARK << 16) | (_STACK_USAGE_MARK << 8) | _STACK_USAGE_MARK)
+
+#ifndef OS_IRQ_SYSTICK_HANDLER
+#define OS_IRQ_SYSTICK_HANDLER SysTick_Handler
+#endif
+
+#ifndef OS_IRQ_PENDSV_HANDLER
+#define OS_IRQ_PENDSV_HANDLER PendSV_Handler
+#endif
+
+#define os_svc(code) asm volatile ("svc %[immediate]"::[immediate] "I" (code))
 
 typedef struct {
   u32_t r0;
@@ -62,7 +102,7 @@ static struct os {
   list_t q_running;
   // thread sleeping queue
   list_t q_sleep;
-  time first_awake;
+  sys_time first_awake;
   volatile bool preemption;
 #if OS_RUNTIME_VALIDITY_CHECK
   u32_t os_canary_post;
@@ -82,7 +122,7 @@ static volatile u32_t g_mutex_id = 0;
 static volatile u32_t g_cond_id = 0;
 static volatile u8_t g_crit_entry = 0;
 
-u32_t __os_ctx_switch(void *sp);
+static u32_t __os_ctx_switch_select_thread(void *sp);
 static void __os_thread_death(void);
 static void __os_update_preemption();
 static void __os_disable_preemption(void);
@@ -113,95 +153,97 @@ static void __os_check_validity() {
 // called from SVC_Handler in svc_handler.s
 void __os_svc_handler(u32_t *args) {
   u32_t svc_nbr;
-  u32_t arg0;
-  u32_t arg1;
-  u32_t arg2;
-  u32_t arg3;
+  u32_t arg0, arg1, arg2, arg3;
 
   svc_nbr = ((u8_t *)args[6])[-2]; // get stacked_pc - 2
-  arg0 = args[0];
-  arg1 = args[1];
-  arg2 = args[2];
-  arg3 = args[3];
+//  arg0 = args[0];
+//  arg1 = args[1];
+//  arg2 = args[2];
+//  arg3 = args[3];
+
+  (void)arg0;
+  (void)arg1;
+  (void)arg2;
+  (void)arg3;
 
   //print("SVC call #%i %08x %08x %08x %08x\n", svc_nbr, arg0, arg1, arg2, arg3);
 
   if (svc_nbr == 1) {
-// TODO
-//    if (arg0 == OS_SVC_YIELD) {
-      OS_HAL_PENDING_CTX_SWITCH;
-      return;
-//    }
+    OS_HAL_PENDING_CTX_SWITCH;
+    return;
   }
   ASSERT(FALSE);
 }
 
-// Called from SysTick_Handler in stm32f103x_it.c
-void __os_systick(void) {
+void OS_IRQ_SYSTICK_HANDLER(void) {
   // assert pendsv
+  TRACE_IRQ_ENTER(SysTick_IRQn);
   OS_HAL_PENDING_CTX_SWITCH;
+  TRACE_IRQ_EXIT(SysTick_IRQn);
 }
 
-// Called from PendSV_Handler in stm32f103x_it.c
 // Avoid nesting: cannot be a nested interrupt, as it is pendsv
 // with lowest prio.
 // Not in c, we can never know what compiler does with registers
 // and stack after restoring context upon function exit.
-__attribute__((naked)) void __os_pendsv(void)  {
+__attribute__((naked)) void OS_IRQ_PENDSV_HANDLER(void)  {
   asm volatile (
       // if os.current_flags != 0, then store context
-      "ldr     r2, __os\n"
-      "ldr     r1, [r2, %0]\n"    // get os.current_flags
-      "cbz     r1, __no_leave_context\n"
+      "  ldr     r2, __os                  \n\t"
+      "  ldr     r1, [r2, %0]              \n\t" // get os.current_flags
+      "  cbz     r1, __no_leave_context    \n\t"
       // ....store thread context
-      "mrs     r0, psp\n"
-      "stmdb   r0!, {r4-r11}\n"
-      "msr     psp, r0\n"
+      "  mrs     r0, psp                   \n\t"
+      "  stmdb   r0!, {r4-r11}             \n\t"
+      "  msr     psp, r0                   \n\t"
 
-      // call __os_ctx_switch
-      "__do_ctx_switch:\n"
+      // call __os_ctx_switch_select_thread
+      "__do_ctx_switch:                    \n\t"
       // takes r0 = current sp
-      "bl      __os_ctx_switch\n"
+      "  bl      __os_ctx_switch_select_thread\n\t"
       // returns r0 = flags of new thread or 0
       //         r1 = new sp
 
       // if got new thread
-      "cbz     r0, __no_enter_context\n"
+      "  cbz     r0, __no_enter_context    \n\t"
 
-      // ..restore context, set user or privileged
-      "mrs     r2, CONTROL\n"
-      "tst     r0, #(1<<2)\n"     // is OS_THREAD_FLAG_PRIVILEGED set?
-      "ite     ne\n"
-      "andne   r2, #1\n"      // privileged
-      "orreq   r2, #1\n"      // user
-      "msr     CONTROL, r2\n"
+      // ..restore context: set user or privileged
+      "  mrs     r2, CONTROL               \n\t"
+      "  tst     r0, #(1<<2)               \n\t" // is OS_THREAD_FLAG_PRIVILEGED set?
+      "  ite     ne                        \n\t"
+      "  andne   r2, #1                    \n\t" // privileged
+      "  orreq   r2, #1                    \n\t" // user
+      "  msr     CONTROL, r2               \n\t"
       // ....restore thread context
-      "ldmfd   r1!, {r4-r11}\n"
-      "msr     psp, r1\n"
-      "mvn     lr, #2\n" // __THREAD_RETURN
-      "bx      lr\n"
+      "  ldmfd   r1!, {r4-r11}             \n\t"
+      "  msr     psp, r1                   \n\t"
+      "  mvn     lr, #2                    \n\t" // __THREAD_RETURN
+      "  bx      lr                        \n\t"
 
       // ..else if no new thread, get ass back to kernel main
-      "__no_enter_context:\n"
-      "ldr     r2, __os\n"
-      "ldr     r1, [r2, %1]\n"  // r1 = os.main_msp
-      "str     r0, [r2, %0]\n"  // os.current_flags = 0
-      "msr     msp, r1\n"       // msp = r1
-      "pop     {r4-r11}\n"
-      "mvn     lr, #6\n" // __MAIN_RETURN, kernel
-      "bx      lr\n"
+      "__no_enter_context:                 \n\t"
+      "  ldr     r2, __os                  \n\t"
+      "  ldr     r1, [r2, %1]              \n\t" // r1 = os.main_msp
+      "  str     r0, [r2, %0]              \n\t" // os.current_flags = 0
+      "  msr     msp, r1                   \n\t" // msp = r1
+      "  pop     {r4-r11}                  \n\t"
+      "  mvn     lr, #6                    \n\t" // __MAIN_RETURN, kernel
+      "  bx      lr                        \n\t"
       // .. store kernel main context
-      "__no_leave_context:\n"
-      "ldr     r1, [r2, %1]\n"    // get os.main_msp
-      "teq     r1, #0\n"          // if zero, first ctx switch ever
-      "ittt    eq\n"
-      "pusheq  {r4-r11}\n"
-      "mrseq   r0, msp\n"
-      "streq   r0, [r2, %1]\n"    // store os.main_msp
-      "b       __do_ctx_switch\n"
-      ""
-      "__os:"
-      ".word   os"
+      "__no_leave_context:                 \n\t"
+//      "  ldr     r1, [r2, %1]              \n\t" // get os.main_msp
+//      "  teq     r1, #0                    \n\t" // if zero, first ctx switch ever
+//      "  ittt    eq                        \n\t"
+//      "  pusheq  {r4-r11}                  \n\t"
+//      "  mrseq   r0, msp                   \n\t"
+//      "  streq   r0, [r2, %1]              \n\t" // store os.main_msp
+      "  push  {r4-r11}                    \n\t"
+      "  mrs   r0, msp                     \n\t"
+      "  str   r0, [r2, %1]                \n\t" // store os.main_msp
+      "  b       __do_ctx_switch           \n\t"
+
+      "__os:                               \n\t"
+      "  .word   os                        \n\t"
       :
       : "n"(offsetof(struct os, current_flags)), "n"(offsetof(struct os, main_msp))
   );
@@ -209,7 +251,7 @@ __attribute__((naked)) void __os_pendsv(void)  {
 
 //------- System helpers -------------
 
-u32_t __os_ctx_switch(void *sp) {
+static __attribute__(( used )) u32_t __os_ctx_switch_select_thread(void *sp) {
   os_thread *cand = NULL;
   __CLREX();  // removes the local exclusive access tag for the processor
 
@@ -225,9 +267,16 @@ u32_t __os_ctx_switch(void *sp) {
     ASSERT(*(u32_t*)(os.current_thread->stack_start - 4) == OS_STACK_START_MARKER);
     ASSERT(*(u32_t*)(os.current_thread->stack_end) == OS_STACK_END_MARKER);
 #endif
+  } else {
+    TRACE_OS_KERNEL_LEAVE(list_count(&os.q_sleep));
   }
 
   // find next candidate
+#if CONFIG_OS_TASKQ_KERNEL
+  if (TASK_got_active_tasks()) {
+    cand = NULL; // goto kernel
+  } else
+#endif
 #if CONFIG_OS_BUMP
   if (os.bumped_thread != NULL) {
     // if we have a bumped thread, prefer that to anything else
@@ -250,9 +299,10 @@ u32_t __os_ctx_switch(void *sp) {
     os.current_flags = cand->flags;
     TRACE_OS_CTX_ENTER(cand);
   } else {
-    // no candidate, goto sleep
+    // no candidate, goto kernel
     os.current_flags = 0;
-    TRACE_OS_SLEEP(list_count(&os.q_running));
+    TRACE_OS_KERNEL_ENTER(list_count(&os.q_sleep));
+    //TRACE_OS_SLEEP(list_count(&os.q_running));
   }
   os.current_thread = cand;
   __os_update_preemption();
@@ -272,7 +322,7 @@ u32_t __os_ctx_switch(void *sp) {
   return os.current_flags;
 }
 
-static void __os_sleepers_update(list_t *q, time now) {
+static void __os_sleepers_update(list_t *q, sys_time now) {
   element_t *e;
   e = list_first(q);
   while (e && list_get_order(e) <= now) {
@@ -335,14 +385,22 @@ static void __os_update_first_awake() {
 }
 
 static void __os_update_preemption() {
+#if CONFIG_OS_TASKQ_KERNEL
+  if (os.q_running.length > 0 || TASK_got_active_tasks()) {
+    __os_enable_preemption();
+  } else {
+    __os_disable_preemption();
+  }
+#else
   if (os.q_running.length <= 1) {
     __os_disable_preemption();
   } else {
     __os_enable_preemption();
   }
+#endif
 }
 
-void __os_time_tick(time now) {
+void OS_time_tick(sys_time now) {
   if (now >= os.first_awake) {
     __os_sleepers_update(&os.q_sleep, now);
     __os_update_first_awake();
@@ -387,6 +445,7 @@ static inline void __os_enable_preemption(void) {
   OS_HAL_ENABLE_PREEMPTION;
 }
 
+#if OS_DBG_MON
 static bool OS_enter_critical() {
   bool pre = os.preemption;
   __os_disable_preemption();
@@ -398,6 +457,7 @@ static void OS_exit_critical(bool pre) {
     __os_enable_preemption();
   }
 }
+#endif
 
 //------- Public functions -----------
 
@@ -488,7 +548,7 @@ u32_t OS_thread_id(os_thread *t) {
 u32_t OS_thread_yield(void) {
   ASSERT(g_crit_entry == 0);
   TRACE_OS_YIELD(OS_thread_self());
-  OS_svc_1((void*)OS_SVC_YIELD,0,0,0);
+  os_svc(1);
   return OS_thread_self()->ret_val;
 }
 
@@ -519,9 +579,9 @@ u32_t OS_mutex_init(os_mutex *m, u32_t attrs) {
   return 0;
 }
 
-void OS_thread_sleep(time delay) {
+void OS_thread_sleep(sys_time delay) {
   os_thread *self = OS_thread_self();
-  time awake = SYS_get_time_ms() + delay;
+  sys_time awake = SYS_get_time_ms() + delay;
   enter_critical();
   TRACE_OS_THRSLEEP(self);
   list_delete(&os.q_running, OS_ELEMENT(self));
@@ -730,7 +790,7 @@ u32_t OS_cond_wait(os_cond *c, os_mutex *m) {
   return r;
 }
 
-u32_t OS_cond_timed_wait(os_cond *c, os_mutex *m, time delay) {
+u32_t OS_cond_timed_wait(os_cond *c, os_mutex *m, sys_time delay) {
   bool into_sleep_queue;
   u32_t r;
   os_thread *self = OS_thread_self();
@@ -746,7 +806,7 @@ u32_t OS_cond_timed_wait(os_cond *c, os_mutex *m, time delay) {
   }
 
   into_sleep_queue = c->has_sleepers;
-  time awake = SYS_get_time_ms() + delay;
+  sys_time awake = SYS_get_time_ms() + delay;
   list_delete(&os.q_running, OS_ELEMENT(self));
   list_set_order(OS_ELEMENT(self), awake);
   list_sort_insert(&c->q_sleep, OS_ELEMENT(self));
@@ -788,12 +848,12 @@ u32_t OS_cond_signal(os_cond *c) {
     // wake up first timed waiter
     t = OS_THREAD(list_first(&c->q_sleep));
     TRACE_OS_SIGWAKED(t);
-    if (os.current_thread != t) {
 #if CONFIG_OS_BUMP
+    if (os.current_thread != t) {
       // play it nice and do not bump if thread is already running
       os.bumped_thread = t;
-#endif
     }
+#endif
     list_delete(&c->q_sleep, OS_ELEMENT(t));
     // did the condition's sleep queue become empty?
     if (list_is_empty(&c->q_sleep)) {
@@ -807,12 +867,12 @@ u32_t OS_cond_signal(os_cond *c) {
     t = OS_THREAD(list_first(&c->q_block));
     if (t != NULL) {
       TRACE_OS_SIGWAKED(t);
-      if (os.current_thread != t) {
 #if CONFIG_OS_BUMP
+      if (os.current_thread != t) {
         // play it nice and do not bump if thread is already running
         os.bumped_thread = t;
-#endif
       }
+#endif
       list_delete(&c->q_block, OS_ELEMENT(t));
     }
   }
@@ -838,12 +898,12 @@ u32_t OS_cond_broadcast(os_cond *c) {
 
   // wake all sleepers
   if (!list_is_empty(&c->q_sleep)) {
-    if (os.current_thread != OS_THREAD(list_first(&c->q_sleep))) {
 #if CONFIG_OS_BUMP
+    if (os.current_thread != OS_THREAD(list_first(&c->q_sleep))) {
       // play it nice and do not bump if thread is already running
       os.bumped_thread = OS_THREAD(list_first(&c->q_sleep));
-#endif
     }
+#endif
     TRACE_OS_SIGWAKED(OS_THREAD(list_first(&c->q_sleep)));
     list_move_all(&os.q_running, &c->q_sleep);
     //  remove condition from os sleep queue and update first_awake value.
@@ -853,12 +913,12 @@ u32_t OS_cond_broadcast(os_cond *c) {
   } else {
     // if no sleepers, bump first blocked thread
     if (!list_is_empty(&c->q_block)) {
-      if (os.current_thread != OS_THREAD(list_first(&c->q_block))) {
 #if CONFIG_OS_BUMP
+      if (os.current_thread != OS_THREAD(list_first(&c->q_block))) {
         // play it nice and do not bump if thread is already running
         os.bumped_thread = OS_THREAD(list_first(&c->q_block));
-#endif
       }
+#endif
       TRACE_OS_SIGWAKED(OS_THREAD(list_first(&c->q_block)));
     }
   }
@@ -876,29 +936,31 @@ u32_t OS_cond_broadcast(os_cond *c) {
   return 0;
 }
 
-
-void OS_svc_0(void *arg, ...) {
-  asm volatile (
-      "svc 0\n"
-  );
+os_wakeup_res OS_get_next_wakeup(sys_time *next_wakeup) {
+  if (os.q_running.length > 0) {
+    if (os.first_awake != OS_FOREVER) {
+      if (next_wakeup) {
+      *next_wakeup = os.first_awake;
+      }
+      return OS_WUP_SLEEP_RUNNING;
+    } else {
+      return OS_WUP_RUNNING;
+    }
+    return OS_WUP_RUNNING;
+  } else if (os.first_awake == OS_FOREVER) {
+    return OS_WUP_SLEEP_FOREVER;
+  } else if (next_wakeup) {
+    *next_wakeup = os.first_awake;
+  }
+  return OS_WUP_SLEEP;
 }
 
-void OS_svc_1(void *arg, ...) {
-  asm volatile (
-      "svc 1\n"
-  );
+u32_t OS_get_running_threads(void) {
+  return list_count(&os.q_running);
 }
 
-void OS_svc_2(void *arg, ...) {
-  asm volatile (
-      "svc 2\n"
-  );
-}
-
-void OS_svc_3(void *arg, ...) {
-  asm volatile (
-      "svc 3\n"
-  );
+void OS_force_ctx_switch(void) {
+  OS_HAL_PENDING_CTX_SWITCH;
 }
 
 void OS_init(void) {

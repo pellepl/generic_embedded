@@ -10,6 +10,9 @@
 #include "taskq.h"
 #include "miniutils.h"
 #include <stdarg.h>
+#ifdef CONFIG_OS
+#include "os.h"
+#endif
 
 #ifdef DBG_OFF
 static int cli_dbg(u32_t argc) {

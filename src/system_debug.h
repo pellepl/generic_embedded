@@ -648,6 +648,7 @@ typedef enum {
   _TRC_OP_IRQ_ENTER, _TRC_OP_IRQ_EXIT,
   _TRC_OP_IRQ_ON, _TRC_OP_IRQ_OFF,
   _TRC_OP_OS_CTX_LEAVE, _TRC_OP_OS_CTX_ENTER,
+  _TRC_OP_OS_KERNEL_LEAVE, _TRC_OP_OS_KERNEL_ENTER,
   _TRC_OP_OS_CREATE, _TRC_OP_OS_YIELD, _TRC_OP_OS_THRSLEEP, _TRC_OP_OS_DEAD,
   _TRC_OP_OS_MUTLOCK, _TRC_OP_OS_MUTACQ_LOCK, _TRC_OP_OS_MUTWAIT_LOCK, _TRC_OP_OS_MUTUNLOCK,
   _TRC_OP_OS_CONDWAIT, _TRC_OP_OS_CONDTIMWAIT, _TRC_OP_OS_CONDSIG, _TRC_OP_OS_SIGWAKED, _TRC_OP_OS_CONDBROAD, _TRC_OP_OS_CONDTIMWAKED,
@@ -666,6 +667,7 @@ static const char* const TRACE_NAMES[] = {
   "irq_enter","irq_exit ",
   "irq_on", "irq_off",
   "ctx_leave", "ctx_enter",
+  "kernel_leave", "kernel_enter",
   "thr_create", "thr_yield", "thr_sleep", "thr_dead",
   "mutex_lock", "mutex_acquire", "mutex_wait", "mutex_unlock",
   "cond_wait", "cond_tim_wait", "cond_signal", "cond_sig_waked", "cond_broadcast", "cond_tim_waked",
@@ -693,6 +695,8 @@ static const char* const TRACE_NAMES[] = {
 
 #define TRACE_OS_CTX_LEAVE(thr)     TRACE_LOG(_TRC_OP_OS_CTX_LEAVE, (thr)->id)
 #define TRACE_OS_CTX_ENTER(thr)     TRACE_LOG(_TRC_OP_OS_CTX_ENTER, (thr)->id)
+#define TRACE_OS_KERNEL_LEAVE(x)    TRACE_LOG(_TRC_OP_OS_KERNEL_LEAVE, x)
+#define TRACE_OS_KERNEL_ENTER(x)    TRACE_LOG(_TRC_OP_OS_KERNEL_ENTER, x)
 #define TRACE_OS_THRCREATE(thr)     TRACE_LOG(_TRC_OP_OS_CREATE, (thr)->id)
 #define TRACE_OS_YIELD(thr)         TRACE_LOG(_TRC_OP_OS_YIELD, (thr)->id)
 #define TRACE_OS_THRDEAD(thr)       TRACE_LOG(_TRC_OP_OS_DEAD, (thr)->id)

@@ -181,7 +181,7 @@ void SYS_assert(const char* file, int line) {
   IO_tx_flush(IODBG);
   ioprint(IODBG, TEXT_BAD("\nASSERT: %s:%i\n"), file, line);
   IO_tx_flush(IODBG);
-#ifdef CONFIG_OS
+#if defined(CONFIG_OS) && defined(OS_DBG_MON)
   OS_DBG_list_all(TRUE, IODBG);
   IO_tx_flush(IODBG);
 #endif
@@ -338,7 +338,7 @@ void SYS_dump_trace(u8_t io) {
     os_thread *t;
 #endif
     switch (op) {
-#ifdef CONFIG_OS
+#if defined(CONFIG_OS) && defined(OS_DBG_MON)
     case _TRC_OP_OS_CTX_LEAVE:
     case _TRC_OP_OS_CTX_ENTER:
     case _TRC_OP_OS_CREATE:

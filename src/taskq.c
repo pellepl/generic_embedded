@@ -383,6 +383,10 @@ void TASK_free(task *t) {
   exit_critical();
 }
 
+bool TASK_got_active_tasks(void) {
+  return task_sys.head != NULL || task_sys.current != NULL;
+}
+
 u32_t TASK_tick() {
   enter_critical();
   TQ_ENTER_CRITICAL;

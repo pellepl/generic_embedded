@@ -187,6 +187,11 @@ void TASK_timer();
  * Returns ms for nearest awaiting timer
  */
 s32_t TASK_next_wakeup_ms(sys_time *t, task_timer **timer);
+/**
+ * Returns if there are any active tasks
+ */
+bool TASK_got_active_tasks(void);
+
 void TASK_dump(u8_t io);
 void TASK_dump_pool(u8_t io);
 
