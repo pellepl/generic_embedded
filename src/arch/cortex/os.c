@@ -385,7 +385,7 @@ static void __os_update_first_awake() {
 }
 
 static void __os_update_preemption() {
-#if CONFIG_OS_TASKQ_KERNEL
+#if 0 && CONFIG_OS_TASKQ_KERNEL
   if (os.q_running.length > 0 || TASK_got_active_tasks()) {
     __os_enable_preemption();
   } else {
