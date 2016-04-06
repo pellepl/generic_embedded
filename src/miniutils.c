@@ -47,7 +47,8 @@ void v_printf(long p, const char* f, va_list arg_p) {
   register const char* tmp_f = f;
   register const char* start_f = f;
   char c;
-  int format = 0;
+  bool num_neg = FALSE;
+  bool format = FALSE;
   int num = 0;
 #ifdef MINIUTILS_PRINT_FLOAT
   bool fracspec = FALSE;
@@ -89,6 +90,9 @@ void v_printf(long p, const char* f, va_list arg_p) {
           fracnum = MIN(sizeof(buf)/2-1, fracnum);
         }
 #endif
+        continue;
+      case '-':
+        num_neg = num == 0;
         continue;
       case '+':
         flags |= ITOA_FORCE_SIGN;
@@ -197,7 +201,16 @@ void v_printf(long p, const char* f, va_list arg_p) {
       }
       case 's': {
         char *s = va_arg(arg_p, char*);
-        PUTB(p, s, strlen(s));
+        int s_len = strlen(s);
+        if (s_len < num && !num_neg) {
+          int i;
+          for (i = 0; i < num-s_len; i++) PUTC(p, ' ');
+        }
+        PUTB(p, s, s_len);
+        if (s_len < num && num_neg) {
+          int i;
+          for (i = 0; i < num-s_len; i++) PUTC(p, ' ');
+        }
         break;
       }
       default:
@@ -205,7 +218,7 @@ void v_printf(long p, const char* f, va_list arg_p) {
         break;
       }
       start_f = tmp_f;
-      format = 0;
+      format = FALSE;
     } else {
       // not formatting
       if (c == '%') {
@@ -213,7 +226,8 @@ void v_printf(long p, const char* f, va_list arg_p) {
           PUTB(p, start_f, (int)(tmp_f - start_f - 1));
         }
         num = 0;
-        format = 1;
+        num_neg = FALSE;
+        format = TRUE;
         flags = ITOA_FILL_SPACE;
 #ifdef MINIUTILS_PRINT_FLOAT
         fracspec = FALSE;
