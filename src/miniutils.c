@@ -635,6 +635,73 @@ void quicksort_cmp(int* orders, void** pp, int elements,
   quicksort(orders, pp, elements);
 }
 
+
+
+#ifdef MINIUTILS_BASE64
+
+static const char tbl_b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+static u8_t b64_ctoi(char c) {
+  if (c >= 'A' && c <= 'Z') return c-'A';
+  if (c >= 'a' && c <= 'z') return c-'a'+26;
+  if (c >= '0' && c <= '9') return c-'0'+2*26;
+  if (c == '+') return 62;
+  if (c == '/') return 63;
+  return -1;
+}
+
+u32_t enc_base64(u8_t *buf, u8_t *out, u32_t len) {
+  u8_t a,b,c;
+  u32_t olen = 0;
+  while (len >= 3) {
+    a = *buf++;
+    b = *buf++;
+    c = *buf++;
+    out[olen++] = tbl_b64[a >> 2];
+    out[olen++] = tbl_b64[((a & 3) << 4) | (b >> 4)];
+    out[olen++] = tbl_b64[((b & 0x0f) << 2) | (c >> 6)];
+    out[olen++] = tbl_b64[(c & 0x3f)];
+    len -= 3;
+  }
+  if (len == 0) return olen;
+  a = b = 0;
+  if (len == 2) b = buf[1];
+  if (len >= 1) a = buf[0];
+  out[olen++] = tbl_b64[a >> 2];
+  out[olen++] = tbl_b64[((a & 3) << 4) | (b >> 4)];
+  if (len == 1) return olen;
+  out[olen++] = tbl_b64[((b & 0x0f) << 2)];
+  return olen;
+}
+
+u32_t dec_base64(u8_t *buf, u8_t *out, u32_t len) {
+  u8_t a,b,c,d;
+  u32_t olen = 0;
+  while (len >= 4) {
+    a = b64_ctoi(*buf++);
+    b = b64_ctoi(*buf++);
+    c = b64_ctoi(*buf++);
+    d = b64_ctoi(*buf++);
+    out[olen++] = (a<<2) | (b>>4);
+    out[olen++] = (b<<4) | (c>>2);
+    out[olen++] = (c<<6) | d;
+    len -= 4;
+  }
+  if (len <= 1) return olen;
+  a = b = c = 0;
+  if (len >= 2) {
+    a = b64_ctoi(*buf++);
+    b = b64_ctoi(*buf++);
+    out[olen++] = (a<<2) | (b>>4);
+  }
+  if (len == 2) return olen;
+  c = b64_ctoi(*buf++);
+  out[olen++] = (b<<4) | (c>>2);
+  return olen;
+}
+
+#endif
+
 static void c_next(cursor *c) {
   if (c->len > 0) {
     c->len--;

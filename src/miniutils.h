@@ -102,6 +102,14 @@ void quicksort(int* orders, void** pp, int elements);
 // quicksorts given elements of order given by function, both arrays must contain same amount of entries
 void quicksort_cmp(int* orders, void** pp, int elements,
     int(*orderfunc)(void* p));
+#ifdef MINIUTILS_BASE64
+// encodes buf to base64 and puts result in out, returns length of out
+u32_t enc_base64(u8_t *buf, u8_t *out, u32_t len);
+// decodes buf from base64 and puts result in out, returns length of out
+u32_t dec_base64(u8_t *buf, u8_t *out, u32_t len);
+#endif
+
+
 // initiates a cursor of given string and length, if length given is 0 it is calculated
 void strarg_init(cursor *c, char* s, int len);
 // parses next argument as string or value from cursor and places result in arg,
