@@ -19,6 +19,8 @@
 #define MINIUTILS_PRINT_FLOAT
 // enable formatted longlong printing support
 #define MINIUTILS_PRINT_LONGLONG
+// enabel base64 encoding/decoding
+#define MINIUTILS_BASE64
 
 #define PUTC(p, c)  \
   if ((int)(p) == STDOUT) \
