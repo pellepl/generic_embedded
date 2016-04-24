@@ -654,7 +654,7 @@ typedef enum {
   _TRC_OP_OS_CONDWAIT, _TRC_OP_OS_CONDTIMWAIT, _TRC_OP_OS_CONDSIG, _TRC_OP_OS_SIGWAKED, _TRC_OP_OS_CONDBROAD, _TRC_OP_OS_CONDTIMWAKED,
   _TRC_OP_OS_THRWAKED, _TRC_OP_OS_SLEEP,
   _TRC_OP_OS_PREEMPTION,
-  _TRC_OP_TASK_RUN, _TRC_OP_TASK_ENTER, _TRC_OP_TASK_EXIT, _TRC_OP_TASK_TIMER,
+  _TRC_OP_TASK_ALLO, _TRC_OP_TASK_RUN, _TRC_OP_TASK_ENTER, _TRC_OP_TASK_EXIT, _TRC_OP_TASK_FREE, _TRC_OP_TASK_TIMER,
   _TRC_TASK_MUTEX_ENTER, _TRC_TASK_MUTEX_WAIT, _TRC_TASK_MUTEX_WAKE, _TRC_TASK_MUTEX_EXIT, _TRC_TASK_MUTEX_ENTER_M,  _TRC_TASK_MUTEX_EXIT_L,
   _TRC_OP_USER_MSG,
 } _trc_types ;
@@ -668,13 +668,13 @@ static const char* const TRACE_NAMES[] = {
   "irq_on", "irq_off",
   "ctx_leave", "ctx_enter",
   "kernel_leave", "kernel_enter",
-  "thr_create", "thr_yield", "thr_sleep", "thr_dead",
+  "thr_creat", "thr_yield", "thr_sleep", "thr_dead ",
   "mutex_lock", "mutex_acquire", "mutex_wait", "mutex_unlock",
   "cond_wait", "cond_tim_wait", "cond_signal", "cond_sig_waked", "cond_broadcast", "cond_tim_waked",
   "thr_wakeup", "os_sleep",
   "preemption",
-  "task_run", "task_enter", "task_exit ", "task_timer",
-  "task_mx_enter", "task_mx_wait", "task_mx_wake", "task_mx_exit", "task_mx_enter_more", "task_mx_exit_less",
+  "task_allo", "task_run ", "task_entr", "task_exit", "task_free", "task_timr",
+  "task_mx_entr", "task_mx_wait", "task_mx_wake", "task_mx_exit", "task_mx_entr_more", "task_mx_exit_less",
   "user_msg"
 };
 
@@ -715,9 +715,11 @@ static const char* const TRACE_NAMES[] = {
 #define TRACE_OS_SLEEP(x)           TRACE_LOG(_TRC_OP_OS_SLEEP, x)
 #define TRACE_OS_PREEMPTION(x)      TRACE_LOG(_TRC_OP_OS_PREEMPTION, x)
 
+#define TRACE_TASK_ALLO(x)          TRACE_LOG(_TRC_OP_TASK_ALLO, x)
 #define TRACE_TASK_RUN(x)           TRACE_LOG(_TRC_OP_TASK_RUN, x)
 #define TRACE_TASK_ENTER(x)         TRACE_LOG(_TRC_OP_TASK_ENTER, x)
 #define TRACE_TASK_EXIT(x)          TRACE_LOG(_TRC_OP_TASK_EXIT, x)
+#define TRACE_TASK_FREE(x)          TRACE_LOG(_TRC_OP_TASK_FREE, x)
 #define TRACE_TASK_TIMER(x)         TRACE_LOG(_TRC_OP_TASK_TIMER, x)
 
 #define TRACE_TASK_MUTEX_ENTER(x)   TRACE_LOG(_TRC_TASK_MUTEX_ENTER, x)
