@@ -40,8 +40,9 @@ struct task_mutex_s;
 
 typedef struct task_s {
   u8_t _ix;
+  u8_t _id;
   u8_t flags;
-  u8_t run_requests;
+  volatile u8_t run_requests;
   u32_t arg;
   void* arg_p;
   task_f f;

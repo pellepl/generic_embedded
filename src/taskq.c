@@ -184,6 +184,7 @@ static task* TASK_snatch_free(int dir) {
 task_found:
   task_pool.mask[i] &= ~(1<<j);
   task* task = &task_pool.task[i*32+j];
+  TRACE_TASK_ALLO(task->_ix);
   return task;
 
 }
@@ -198,6 +199,7 @@ task* TASK_create(task_f f, u8_t flags) {
     task->f = f;
     task->run_requests = 0;
     task->flags = flags & (~(TASK_RUN | TASK_EXE | TASK_WAIT | TASK_KILLED));
+    task->_id = task->_ix;
     return task;
   } else {
     return 0;
@@ -231,7 +233,7 @@ void TASK_run(task* task, u32_t arg, void* arg_p) {
   // would same task be added twice or more, this at least fixes endless loop
   task->_next = 0;
   task->run_requests++; // if added again during execution
-  TRACE_TASK_RUN(task->_ix);
+  TRACE_TASK_RUN(task->_id);
 #if defined(CONFIG_OS) & defined(CONFIG_TASK_QUEUE_IN_THREAD)
   //#if defined(CONFIG_OS)
   // TODO PETER FIX
@@ -403,7 +405,7 @@ u32_t TASK_tick() {
 
   // execute
   bool do_run = (t->flags & (TASK_RUN | TASK_KILLED)) == TASK_RUN;
-
+  bool free = FALSE;
   // first, fiddle with queue - remove task from schedq unless loop
   // reinsert or kill off
   if ((t->flags & (TASK_LOOP | TASK_KILLED)) == TASK_LOOP) {
@@ -428,7 +430,9 @@ u32_t TASK_tick() {
     }
     // free unless static
     if ((t->flags & TASK_STATIC) == 0) {
-      task_pool.mask[t->_ix/32] |= (1<<(t->_ix & 0x1f));
+      free = TRUE;
+      //task_pool.mask[t->_ix/32] |= (1<<(t->_ix & 0x1f));
+      //TRACE_TASK_FREE(t->_ix);
     }
     t->flags &= ~TASK_RUN;
   }
@@ -442,7 +446,7 @@ u32_t TASK_tick() {
     time then = SYS_get_tick();
 #endif
     t->flags |= TASK_EXE;
-    TRACE_TASK_ENTER(t->_ix);
+    TRACE_TASK_ENTER(t->_id);
     do {
       t->f(t->arg, t->arg_p);
 
@@ -455,8 +459,16 @@ u32_t TASK_tick() {
       TQ_EXIT_CRITICAL;
       exit_critical();
     } while (run_requests > 0);
-    TRACE_TASK_EXIT(t->_ix);
+    enter_critical();
+    TQ_ENTER_CRITICAL;
+    TRACE_TASK_EXIT(t->_id);
     t->flags &= ~TASK_EXE;
+    if (free) {
+      task_pool.mask[t->_ix/32] |= (1<<(t->_ix & 0x1f));
+      TRACE_TASK_FREE(t->_ix);
+    }
+    TQ_EXIT_CRITICAL;
+    exit_critical();
 #if TASK_WARN_HIGH_EXE_TIME > 0
     time delta = SYS_get_tick() - then;
     if (delta >= TASK_WARN_HIGH_EXE_TIME) {
@@ -485,17 +497,17 @@ bool TASK_mutex_lock(task_mutex *m) {
   if (!m->taken) {
     m->entries = 1;
     task_take_lock(t, m);
-    TRACE_TASK_MUTEX_ENTER(t->_ix);
+    TRACE_TASK_MUTEX_ENTER(t->_id);
     return TRUE;
   }
   if (m->reentrant && m->owner == t) {
     m->entries++;
-    TRACE_TASK_MUTEX_ENTER_M(t->_ix);
+    TRACE_TASK_MUTEX_ENTER_M(t->_id);
     ASSERT(m->entries < 254);
     return TRUE;
   }
   // taken, mark task still allocated and insert into mutexq
-  TRACE_TASK_MUTEX_WAIT(t->_ix);
+  TRACE_TASK_MUTEX_WAIT(t->_id);
   enter_critical();
   TQ_ENTER_CRITICAL;
   t->wait_mutex = m;
@@ -543,12 +555,12 @@ bool TASK_mutex_try_lock(task_mutex *m) {
   if (!m->taken) {
     m->entries = 1;
     task_take_lock(task_sys.current, m);
-    TRACE_TASK_MUTEX_ENTER(task_sys.current->_ix);
+    TRACE_TASK_MUTEX_ENTER(task_sys.current->_id);
     return TRUE;
   }
   if (m->reentrant && m->owner == task_sys.current) {
     m->entries++;
-    TRACE_TASK_MUTEX_ENTER_M(task_sys.current->_ix);
+    TRACE_TASK_MUTEX_ENTER_M(task_sys.current->_id);
     ASSERT(m->entries < 254);
     return TRUE;
   }
@@ -561,17 +573,17 @@ void TASK_mutex_unlock(task_mutex *m) {
   ASSERT(!m->reentrant && m->entries <= 1);
   if (m->entries > 1) {
     m->entries--;
-    TRACE_TASK_MUTEX_EXIT_L(task_sys.current->_ix);
+    TRACE_TASK_MUTEX_EXIT_L(task_sys.current->_id);
     return;
   }
-  TRACE_TASK_MUTEX_EXIT(task_sys.current->_ix);
+  TRACE_TASK_MUTEX_EXIT(task_sys.current->_id);
   task_release_lock(m);
   task *t = (task *)m->head;
   while (t) {
     task *next = t->_next;
     t->flags &= ~TASK_WAIT;
     t->wait_mutex = NULL;
-    TRACE_TASK_MUTEX_WAKE(t->_ix);
+    TRACE_TASK_MUTEX_WAKE(t->_id);
     if ((t->flags & TASK_KILLED) == 0) {
       TASK_run(t, t->arg, t->arg_p);
     }
