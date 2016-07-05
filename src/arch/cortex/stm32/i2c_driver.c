@@ -12,7 +12,7 @@ i2c_bus __i2c_bus_vec[I2C_MAX_ID];
 
 #define I2C_HW(bus) ((I2C_TypeDef *)(bus)->hw)
 
-//#define I2C_HW_DBG(...) print("I2C:" ## __VA_ARGS__)
+//#define I2C_HW_DBG(...) print("I2C:" __VA_ARGS__)
 #define I2C_HW_DBG(...)
 
 int I2C_config(i2c_bus *bus, u32_t clock) {
