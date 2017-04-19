@@ -13,15 +13,26 @@
 #include "arch.h"
 #include "shared_mem.h"
 
+#ifndef MIN
 #define MIN(x,y)  ((x)<(y)?(x):(y))
+#endif
+#ifndef MAX
 #define MAX(x,y)  ((x)>(y)?(x):(y))
+#endif
+#ifndef ABS
 #define ABS(x)    ((x)<0?(-(x)):(x))
+#endif
+#ifndef SIGN
 #define SIGN(x)   ((x) == 0 ? 0 : ((x)<0?(-1):(1)))
+#endif
 
+#ifndef STR
 #define STR(tok) #tok
+#endif
 
-#define offsetof(st, m) \
-     ((u32_t) ( (char *)&((st *)0)->m - (char *)0 ))
+#ifndef offsetof
+#define offsetof(st, m) ((u32_t) ( (char *)&((st *)0)->m - (char *)0 ))
+#endif
 
 #ifdef CONFIG_MEMOPS
 #define memcpy(d,s,n) __builtin_memcpy((d),(s),(n))

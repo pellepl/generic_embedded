@@ -53,7 +53,23 @@ CFILES	+= arch.c
 CFILES	+= proc_family.c
 CFILES	+= proc_specific.c
 CFILES	+= system.c
+
+ifeq (1, $(strip $(CONFIG_IO)))
 CFILES	+= io.c
+FLAGS	+= -DCONFIG_IO
+ifeq (1, $(strip $(CONFIG_IO_NOFLUSH)))
+FLAGS	+= -DCONFIG_IO_NOFLUSH
+endif
+ifeq (1, $(strip $(CONFIG_IO_NOBLOCK)))
+FLAGS	+= -DCONFIG_IO_NOBLOCK
+endif
+ifeq (1, $(strip $(CONFIG_IO_NODRAIN)))
+FLAGS	+= -DCONFIG_IO_NODRAIN
+endif
+ifeq (1, $(strip $(CONFIG_IO_NOASSURE)))
+FLAGS	+= -DCONFIG_IO_NOASSURE
+endif
+endif
 
 ifeq (1, $(strip $(CONFIG_SYS_TIME_64_BIT)))
 FLAGS	+= -DCONFIG_SYS_TIME_64_BIT
@@ -86,6 +102,13 @@ ifeq (1, $(strip $(ARCH_CORTEX)))
 SFILES	+= sqrt.s 
 endif
 CFILES 	+= trig_q.c
+endif
+
+### CONFIG_CRC - crc functions
+
+ifeq (1, $(strip $(CONFIG_CRC)))
+FLAGS	+= -DCONFIG_CRC
+CFILES 	+= crc.c
 endif
 
 ### CONFIG_MINIUTILS - print, strlen, other basics
@@ -190,6 +213,10 @@ endif
 ifeq (1, $(strip $(CONFIG_UART)))
 FLAGS	+= -DCONFIG_UART
 CFILES	+= uart_driver.c
+
+ifeq (1, $(strip $(CONFIG_UART_OWN_CFG)))
+FLAGS	+= -DCONFIG_UART_OWN_CFG
+endif
 
 #   CONFIG_WIFI232 - wifi over serial driver USR_WIFI232B
 ifeq (1, $(strip $(CONFIG_WIFI232)))

@@ -43,6 +43,7 @@ static void io_usb_cb(u16_t available, void *arg) {
 }
 #endif
 
+#ifndef CONFIG_IO_NOASSURE
 bool IO_assure_tx(u8_t io, bool on) {
   switch (io_bus[io].media) {
   case io_uart:
@@ -58,7 +59,9 @@ bool IO_assure_tx(u8_t io, bool on) {
   }
   return FALSE;
 }
+#endif
 
+#ifndef CONFIG_IO_NOBLOCK
 bool IO_blocking_tx(u8_t io, bool on) {
   switch (io_bus[io].media) {
   case io_uart:
@@ -74,6 +77,7 @@ bool IO_blocking_tx(u8_t io, bool on) {
   }
   return FALSE;
 }
+#endif
 
 void IO_set_callback(u8_t io, io_rx_cb cb, void *arg) {
   if (cb) {
@@ -199,6 +203,7 @@ void IO_tx_force_char(u8_t io, u8_t c) {
   }
 }
 
+#ifndef CONFIG_IO_NODRAIN
 void IO_tx_drain(u8_t io) {
   switch (io_bus[io].media) {
   case io_uart:
@@ -218,7 +223,9 @@ void IO_tx_drain(u8_t io) {
     break;
   }
 }
+#endif
 
+#ifndef CONFIG_IO_NOFLUSH
 void IO_tx_flush(u8_t io) {
   switch (io_bus[io].media) {
   case io_uart:
@@ -235,6 +242,7 @@ void IO_tx_flush(u8_t io) {
     break;
   }
 }
+#endif
 
 s32_t IO_put_buf(u8_t io, u8_t *buf, u16_t len) {
   switch (io_bus[io].media) {
