@@ -66,6 +66,14 @@ typedef uint16_t hw_io_pin;
   (((volatile u32_t *)(port))[0x18/sizeof(u32_t)]) = (pin_ena) | ((pin_dis)<<16)
 #define GPIO_read(port, pin) (((port)->IDR & (pin)) != 0)
 
+#elif defined(PROC_STM32F7)
+
+#define GPIO_enable(port, pins) (port)->BSRR = (pins)
+#define GPIO_disable(port, pins) (port)->BSRR = ((pins)<<16)
+#define GPIO_set(port, pin_ena, pin_dis) \
+  do { (port)->BSRR = ((pin_dis)<<16) | (pin_ena); }while(0)
+#define GPIO_read(port, pin) (((port)->IDR & (pin)) != 0)
+
 #else
 
 #error "undefined processor for family"

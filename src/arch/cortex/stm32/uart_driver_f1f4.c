@@ -241,28 +241,28 @@ bool UART_config(uart *uart, u32_t baud, UART_databits databits,
   if (activate) {
     cfg.USART_BaudRate = baud;
     switch (databits) {
-    case UART_DATABITS_8: cfg.USART_WordLength = USART_WordLength_8b; break;
-    case UART_DATABITS_9: cfg.USART_WordLength = USART_WordLength_9b; break;
+    case UART_CFG_DATABITS_8: cfg.USART_WordLength = USART_WordLength_8b; break;
+    case UART_CFG_DATABITS_9: cfg.USART_WordLength = USART_WordLength_9b; break;
     default: return FALSE;
     }
     switch (stopbits) {
-    case UART_STOPBITS_0_5: cfg.USART_StopBits = USART_StopBits_0_5; break;
-    case UART_STOPBITS_1: cfg.USART_StopBits = USART_StopBits_1; break;
-    case UART_STOPBITS_1_5: cfg.USART_StopBits = USART_StopBits_1_5; break;
-    case UART_STOPBITS_2: cfg.USART_StopBits = USART_StopBits_2; break;
+    case UART_CFG_STOPBITS_0_5: cfg.USART_StopBits = USART_StopBits_0_5; break;
+    case UART_CFG_STOPBITS_1: cfg.USART_StopBits = USART_StopBits_1; break;
+    case UART_CFG_STOPBITS_1_5: cfg.USART_StopBits = USART_StopBits_1_5; break;
+    case UART_CFG_STOPBITS_2: cfg.USART_StopBits = USART_StopBits_2; break;
     default: return FALSE;
     }
     switch (parity) {
-    case UART_PARITY_NONE: cfg.USART_Parity = USART_Parity_No; break;
-    case UART_PARITY_EVEN: cfg.USART_Parity = USART_Parity_Even; break;
-    case UART_PARITY_ODD: cfg.USART_Parity = USART_Parity_Odd; break;
+    case UART_CFG_PARITY_NONE: cfg.USART_Parity = USART_Parity_No; break;
+    case UART_CFG_PARITY_EVEN: cfg.USART_Parity = USART_Parity_Even; break;
+    case UART_CFG_PARITY_ODD: cfg.USART_Parity = USART_Parity_Odd; break;
     default: return FALSE;
     }
     switch (flowcontrol) {
-    case UART_FLOWCONTROL_NONE: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_None; break;
-    case UART_FLOWCONTROL_RTS: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_RTS; break;
-    case UART_FLOWCONTROL_CTS: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_CTS; break;
-    case UART_FLOWCONTROL_RTS_CTS: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_RTS_CTS; break;
+    case UART_CFG_FLOWCONTROL_NONE: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_None; break;
+    case UART_CFG_FLOWCONTROL_RTS: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_RTS; break;
+    case UART_CFG_FLOWCONTROL_CTS: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_CTS; break;
+    case UART_CFG_FLOWCONTROL_RTS_CTS: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_RTS_CTS; break;
     default: return FALSE;
     }
     cfg.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;

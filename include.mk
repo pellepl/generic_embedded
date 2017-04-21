@@ -28,6 +28,7 @@ SPATH	+= ${procfamilydir}
 INC 	+= -I${procfamilydir}
 
 #     stm32f1
+ifeq (1, $(strip $(PROC_FAMILY_STM32))) 
 ifeq (1, $(strip $(PROC_STM32F1)))
 FLAGS	+= -DPROC_STM32F1
 FLAGS	+= -DARCH_CORTEX_M1
@@ -38,6 +39,12 @@ ifeq (1, $(strip $(PROC_STM32F4)))
 FLAGS	+= -DPROC_STM32F4
 FLAGS	+= -DARCH_CORTEX_M4
 procdir = ${procfamilydir}/f4
+endif
+#     stm32f7
+ifeq (1, $(strip $(PROC_STM32F7)))
+FLAGS	+= -DPROC_STM32F7
+FLAGS	+= -DARCH_CORTEX_M7
+procdir = ${procfamilydir}/f7
 endif
 
 CPATH 	+= ${procdir}
@@ -211,8 +218,17 @@ endif
 ### CONFIG_UART - uart driver
 
 ifeq (1, $(strip $(CONFIG_UART)))
-FLAGS	+= -DCONFIG_UART
-CFILES	+= uart_driver.c
+  FLAGS	+= -DCONFIG_UART
+  ifeq (1, $(strip $(PROC_FAMILY_STM32))) 
+    ifeq (1, $(strip $(PROC_STM32F7)))
+      CFILES	+= uart_driver_f7.c
+    else
+      CFILES	+= uart_driver_f1f4.c
+    endif
+  else
+    CFILES	+= uart_driver.c
+  endif
+endif
 
 ifeq (1, $(strip $(CONFIG_UART_OWN_CFG)))
 FLAGS	+= -DCONFIG_UART_OWN_CFG
