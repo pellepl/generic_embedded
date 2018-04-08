@@ -1,33 +1,8 @@
 #include "uart_driver.h"
 #include "system.h"
 
-#ifndef UART_USE_STM_LIB
-#define UART_USE_STM_LIB        0
-#endif
-
 #define UART_HW(u)      ((USART_TypeDef *)((u)->hw))
 
-#if UART_USE_STM_LIB
-#define UART_CHECK_RX(u) USART_GetITStatus((u), USART_IT_RXNE) == SET
-#define UART_CHECK_TX(u) USART_GetITStatus((u), USART_IT_TXE) == SET
-#define UART_CHECK_OR(u) USART_GetITStatus((u), USART_IT_ORE) == SET
-#define UART_RX_IRQ_OFF(u) \
-    do { \
-      USART_ITConfig(UART_HW(u), USART_IT_RXNE, DISABLE); \
-    } while (0);
-#define UART_RX_IRQ_ON(u) \
-    do { \
-      USART_ITConfig(UART_HW(u), USART_IT_RXNE, ENABLE); \
-    } while (0);
-#define UART_TX_IRQ_OFF(u) \
-    do { \
-      USART_ITConfigUART_HW(u), USART_IT_TXE, DISABLE); \
-    } while (0);
-#define UART_TX_IRQ_ON(u) \
-    do { \
-      USART_ITConfig(UART_HW(u), USART_IT_TXE, ENABLE); \
-    } while (0);
-#else
 #define UART_CHECK_RX(u) (UART_HW(u)->SR & USART_SR_RXNE)
 #define UART_CHECK_TX(u) (UART_HW(u)->SR & USART_SR_TXE)
 #define UART_CHECK_OR(u) (UART_HW(u)->SR & USART_SR_ORE)
@@ -35,13 +10,12 @@
 #define UART_RX_IRQ_ON(u)  UART_HW(u)->CR1 |= USART_CR1_RXNEIE
 #define UART_TX_IRQ_OFF(u) UART_HW(u)->CR1 &= ~USART_CR1_TXEIE
 #define UART_TX_IRQ_ON(u)  UART_HW(u)->CR1 |= USART_CR1_TXEIE
-#endif
 
 void UART_irq(uart *u) {
   if (u->hw == 0) return;
 
   if ((UART_CHECK_RX(u)) && (UART_HW(u)->CR1 & USART_CR1_RXNEIE)) {
-    u8_t c = USART_ReceiveData(UART_HW(u));
+    u8_t c = UART_HW(u)->DR;
     u->rx.buf[u->rx.wix++] = c;
     if (u->rx.wix >= UART_RX_BUFFER) {
       u->rx.wix = 0;
@@ -52,10 +26,10 @@ void UART_irq(uart *u) {
   }
   if ((UART_CHECK_TX(u))) {
     if (UART_ALWAYS_SYNC_TX || u->sync_tx) {
-      USART_ITConfig(UART_HW(u), USART_IT_TXE, DISABLE);
+      UART_TX_IRQ_OFF(u);
     } else {
       if (u->tx.wix != u->tx.rix) {
-        USART_SendData(UART_HW(u), u->tx.buf[u->tx.rix++]);
+        UART_HW(u)->DR = u->tx.buf[u->tx.rix++];
         if (u->tx.rix >= UART_TX_BUFFER) {
           u->tx.rix = 0;
         }
@@ -66,7 +40,7 @@ void UART_irq(uart *u) {
     }
   }
   if (UART_CHECK_OR(u)) {
-    (void)USART_ReceiveData(UART_HW(u));
+    (void)UART_HW(u)->DR;
   }
 }
 
@@ -187,14 +161,14 @@ s32_t UART_put_char(uart *u, u8_t c) {
 void UART_tx_force_char(uart *u, u8_t c) {
   while (UART_CHECK_TX(u) == 0)
     ;
-  USART_SendData(UART_HW(u), (uint8_t) c);
+  UART_HW(u)->DR = (uint8_t) c;
 }
 
 s32_t UART_put_buf(uart *u, u8_t* c, u16_t len) {
   if (UART_ALWAYS_SYNC_TX || u->sync_tx) {
     u16_t tlen = len;
     while (tlen-- > 0) {
-      UART_put_char(u, *c++);
+      UART_HW(u)->DR = *c++;
     }
     return len;
   } else {
@@ -256,6 +230,7 @@ bool UART_sync_tx(uart *u, bool on) {
   return old;
 }
 
+#ifndef CONFIG_UART_OWN_CFG
 bool UART_config(uart *uart, u32_t baud, UART_databits databits,
     UART_stopbits stopbits, UART_parity parity, UART_flowcontrol flowcontrol,
     bool activate) {
@@ -266,28 +241,28 @@ bool UART_config(uart *uart, u32_t baud, UART_databits databits,
   if (activate) {
     cfg.USART_BaudRate = baud;
     switch (databits) {
-    case UART_DATABITS_8: cfg.USART_WordLength = USART_WordLength_8b; break;
-    case UART_DATABITS_9: cfg.USART_WordLength = USART_WordLength_9b; break;
+    case UART_CFG_DATABITS_8: cfg.USART_WordLength = USART_WordLength_8b; break;
+    case UART_CFG_DATABITS_9: cfg.USART_WordLength = USART_WordLength_9b; break;
     default: return FALSE;
     }
     switch (stopbits) {
-    case UART_STOPBITS_0_5: cfg.USART_StopBits = USART_StopBits_0_5; break;
-    case UART_STOPBITS_1: cfg.USART_StopBits = USART_StopBits_1; break;
-    case UART_STOPBITS_1_5: cfg.USART_StopBits = USART_StopBits_1_5; break;
-    case UART_STOPBITS_2: cfg.USART_StopBits = USART_StopBits_2; break;
+    case UART_CFG_STOPBITS_0_5: cfg.USART_StopBits = USART_StopBits_0_5; break;
+    case UART_CFG_STOPBITS_1: cfg.USART_StopBits = USART_StopBits_1; break;
+    case UART_CFG_STOPBITS_1_5: cfg.USART_StopBits = USART_StopBits_1_5; break;
+    case UART_CFG_STOPBITS_2: cfg.USART_StopBits = USART_StopBits_2; break;
     default: return FALSE;
     }
     switch (parity) {
-    case UART_PARITY_NONE: cfg.USART_Parity = USART_Parity_No; break;
-    case UART_PARITY_EVEN: cfg.USART_Parity = USART_Parity_Even; break;
-    case UART_PARITY_ODD: cfg.USART_Parity = USART_Parity_Odd; break;
+    case UART_CFG_PARITY_NONE: cfg.USART_Parity = USART_Parity_No; break;
+    case UART_CFG_PARITY_EVEN: cfg.USART_Parity = USART_Parity_Even; break;
+    case UART_CFG_PARITY_ODD: cfg.USART_Parity = USART_Parity_Odd; break;
     default: return FALSE;
     }
     switch (flowcontrol) {
-    case UART_FLOWCONTROL_NONE: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_None; break;
-    case UART_FLOWCONTROL_RTS: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_RTS; break;
-    case UART_FLOWCONTROL_CTS: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_CTS; break;
-    case UART_FLOWCONTROL_RTS_CTS: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_RTS_CTS; break;
+    case UART_CFG_FLOWCONTROL_NONE: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_None; break;
+    case UART_CFG_FLOWCONTROL_RTS: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_RTS; break;
+    case UART_CFG_FLOWCONTROL_CTS: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_CTS; break;
+    case UART_CFG_FLOWCONTROL_RTS_CTS: cfg.USART_HardwareFlowControl = USART_HardwareFlowControl_RTS_CTS; break;
     default: return FALSE;
     }
     cfg.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
@@ -306,7 +281,7 @@ bool UART_config(uart *uart, u32_t baud, UART_databits databits,
   }
   return TRUE;
 }
-
+#endif
 
 void UART_init() {
   memset(__uart_vec, 0, sizeof(__uart_vec));

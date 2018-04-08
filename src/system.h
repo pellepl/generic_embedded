@@ -13,15 +13,26 @@
 #include "arch.h"
 #include "shared_mem.h"
 
+#ifndef MIN
 #define MIN(x,y)  ((x)<(y)?(x):(y))
+#endif
+#ifndef MAX
 #define MAX(x,y)  ((x)>(y)?(x):(y))
+#endif
+#ifndef ABS
 #define ABS(x)    ((x)<0?(-(x)):(x))
+#endif
+#ifndef SIGN
 #define SIGN(x)   ((x) == 0 ? 0 : ((x)<0?(-1):(1)))
+#endif
 
+#ifndef STR
 #define STR(tok) #tok
+#endif
 
-#define offsetof(st, m) \
-     ((u32_t) ( (char *)&((st *)0)->m - (char *)0 ))
+#ifndef offsetof
+#define offsetof(st, m) ((u32_t) ( (char *)&((st *)0)->m - (char *)0 ))
+#endif
 
 #ifdef CONFIG_MEMOPS
 #define memcpy(d,s,n) __builtin_memcpy((d),(s),(n))
@@ -53,6 +64,14 @@ typedef uint16_t hw_io_pin;
 #define GPIO_disable(port, pins) (port)->BSRRH = (pins)
 #define GPIO_set(port, pin_ena, pin_dis) \
   (((volatile u32_t *)(port))[0x18/sizeof(u32_t)]) = (pin_ena) | ((pin_dis)<<16)
+#define GPIO_read(port, pin) (((port)->IDR & (pin)) != 0)
+
+#elif defined(PROC_STM32F7)
+
+#define GPIO_enable(port, pins) (port)->BSRR = (pins)
+#define GPIO_disable(port, pins) (port)->BSRR = ((pins)<<16)
+#define GPIO_set(port, pin_ena, pin_dis) \
+  do { (port)->BSRR = ((pin_dis)<<16) | (pin_ena); }while(0)
 #define GPIO_read(port, pin) (((port)->IDR & (pin)) != 0)
 
 #else

@@ -1,6 +1,10 @@
 #include "arch.h"
 #include "system.h"
 
+/**
+ * Cortex variant of arch.c CMSIS
+ */
+
 static volatile u32_t g_crit_entry = 0;
 
 void enter_critical(void) {
@@ -112,7 +116,6 @@ void hard_fault_handler_c(unsigned int * hardfault_args)
   const u8_t io = IODBG;
 
   IO_blocking_tx(io, TRUE);
-
   IO_tx_flush(io);
 
   ioprint(io, TEXT_BAD("\n!!! HARDFAULT !!!\n\n"));

@@ -169,6 +169,122 @@ static int cli_memrd(u32_t argc, u32_t address, u32_t len) {
   return CLI_OK;
 }
 
+static int cli_memtest(u32_t argc, u32_t address, u32_t len) {
+#ifdef EXTSRAM_ADDR
+  if (argc == 0) {
+    address = EXTSRAM_ADDR;
+    len = EXTSRAM_LEN;
+  } else
+#endif
+  if (argc != 2) return CLI_ERR_PARAM;
+  u8_t *addr8 = (u8_t *)address;
+  u16_t *addr16 = (u16_t *)address;
+  u32_t *addr32 = (u32_t *)address;
+
+  u32_t i;
+  u16_t crc, crc_v;
+
+  print("pseudo randomized memtest 0x%08x %d bytes\n", address, len);
+  print("8 bit bus test\n");
+  rand_seed(0x19760401);
+  crc = 0xffff;
+  for (i = 0; i < len; i++) {
+    crc = crc_ccitt_16(crc, (u8_t)rand_next());
+  }
+  print("write\n");
+  rand_seed(0x19760401);
+  for (i = 0; i < len; i++) {
+    addr8[i] = (u8_t)rand_next();
+  }
+  print("verify\n");
+  rand_seed(0x19760401);
+  crc_v = 0xffff;
+  for (i = 0; i < len; i++) {
+    u8_t ref = (u8_t)rand_next();
+    u8_t val = addr8[i];
+    crc_v = crc_ccitt_16(crc_v, val);
+    if (val != ref) {
+      print("ERROR  0x%08x differ, exp:%02x, got:%02x\n", &addr8[i], ref, val);
+      goto end;
+    }
+  }
+  if (crc != crc_v) {
+    print("ERROR  CRC differ, exp:%04x, got:%04x\n", crc, crc_v);
+    goto end;
+  }
+  print("16 bit bus test\n");
+  len /= 2;
+  rand_seed(0x19760401);
+  crc = 0xffff;
+  for (i = 0; i < len; i++) {
+    u16_t v = (u16_t)rand_next();
+    crc = crc_ccitt_16(crc, ((u8_t *)&v)[0]);
+    crc = crc_ccitt_16(crc, ((u8_t *)&v)[1]);
+  }
+  print("write\n");
+  rand_seed(0x19760401);
+  for (i = 0; i < len; i++) {
+    addr16[i] = (u16_t)rand_next();
+  }
+  print("verify\n");
+  rand_seed(0x19760401);
+  crc_v = 0xffff;
+  for (i = 0; i < len; i++) {
+    u16_t ref = (u16_t)rand_next();
+    u16_t val = addr16[i];
+    crc_v = crc_ccitt_16(crc_v, ((u8_t *)&val)[0]);
+    crc_v = crc_ccitt_16(crc_v, ((u8_t *)&val)[1]);
+    if (val != ref) {
+      print("ERROR  0x%08x differ, exp:%04x, got:%04x\n", &addr16[i], ref, val);
+      goto end;
+    }
+  }
+  if (crc != crc_v) {
+    print("ERROR  CRC differ, exp:%04x, got:%04x\n", crc, crc_v);
+    goto end;
+  }
+  print("32 bit bus test\n");
+  len /= 2;
+  rand_seed(0x19760401);
+  crc = 0xffff;
+  for (i = 0; i < len; i++) {
+    u32_t v = (u32_t)rand_next();
+    crc = crc_ccitt_16(crc, ((u8_t *)&v)[0]);
+    crc = crc_ccitt_16(crc, ((u8_t *)&v)[1]);
+    crc = crc_ccitt_16(crc, ((u8_t *)&v)[2]);
+    crc = crc_ccitt_16(crc, ((u8_t *)&v)[3]);
+  }
+  print("write\n");
+  rand_seed(0x19760401);
+  for (i = 0; i < len; i++) {
+    addr32[i] = (u32_t)rand_next();
+  }
+  print("verify\n");
+  rand_seed(0x19760401);
+  crc_v = 0xffff;
+  for (i = 0; i < len; i++) {
+    u32_t ref = (u32_t)rand_next();
+    u32_t val = addr32[i];
+    crc_v = crc_ccitt_16(crc_v, ((u8_t *)&val)[0]);
+    crc_v = crc_ccitt_16(crc_v, ((u8_t *)&val)[1]);
+    crc_v = crc_ccitt_16(crc_v, ((u8_t *)&val)[2]);
+    crc_v = crc_ccitt_16(crc_v, ((u8_t *)&val)[3]);
+    if (val != ref) {
+      print("ERROR  0x%08x differ, exp:%08x, got:%08x\n", &addr32[i], ref, val);
+      goto end;
+    }
+  }
+  if (crc != crc_v) {
+    print("ERROR  CRC differ, exp:%04x, got:%04x\n", crc, crc_v);
+    goto end;
+  }
+
+  print("OK\n");
+
+  end:
+  return CLI_OK;
+}
+
 static s32_t cli_reset(u32_t argc) {
   SYS_reboot(REBOOT_USER);
   return CLI_OK;
@@ -195,8 +311,10 @@ CLI_FUNC("dump", cli_dump, "Dump system info")
 CLI_FUNC("hardfault", cli_hardfault, "Hardfaults")
 CLI_FUNC("memfind", cli_memfind, "Find 32 bit hex in memory\n"
     "memfind <value>")
-    CLI_FUNC("memrd", cli_memrd, "Read from memory\n"
-        "memrd <addr> <len>")
+CLI_FUNC("memrd", cli_memrd, "Read from memory\n"
+    "memrd <addr> <len>")
+CLI_FUNC("memtest", cli_memtest, "Run memory test\n"
+    "memtest <addr> <len>")
 CLI_FUNC("reset", cli_reset, "Resets processor")
 CLI_FUNC("trace", cli_dump_trace, "Dump system trace")
 CLI_MENU_END

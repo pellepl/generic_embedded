@@ -18,9 +18,13 @@ typedef enum {
   PORTE,
   PORTF,
   PORTG,
-#ifdef PROC_STM32F4
+#if defined(PROC_STM32F4) || defined(PROC_STM32F7)
   PORTH,
   PORTI,
+#endif
+#if defined(PROC_STM32F7)
+  PORTJ,
+  PORTK,
 #endif
   _IO_PORTS
 } gpio_port;
@@ -68,6 +72,12 @@ typedef enum {
 
 
 typedef enum {
+#ifdef PROC_STM32F7
+  GPIO_CLK_LOW = GPIO_SPEED_FREQ_LOW,
+  GPIO_CLK_MEDIUM = GPIO_SPEED_FREQ_MEDIUM,
+  GPIO_CLK_HIGH = GPIO_SPEED_FREQ_HIGH,
+  GPIO_CLK_VHIGH = GPIO_SPEED_VERY_HIGH,
+#else
   CLK_2MHZ = 0,
 #ifdef PROC_STM32F1
   CLK_10MHZ = 0,
@@ -78,6 +88,7 @@ typedef enum {
   CLK_50MHZ,
 #ifdef PROC_STM32F4
   CLK_100MHZ,
+#endif
 #endif
   _IO_SPEEDS
 } io_speed;
